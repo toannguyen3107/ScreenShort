@@ -1,4 +1,4 @@
-package com.screenshot;
+package com.screenshort;
 
 import java.awt.Color;
 import java.awt.Component;

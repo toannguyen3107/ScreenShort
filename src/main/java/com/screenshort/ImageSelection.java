@@ -1,4 +1,4 @@
-package com.screenshot;
+package com.screenshort;
 
 import java.awt.Image;
 import java.awt.datatransfer.Transferable;

@@ -1,4 +1,4 @@
-package com.screenshot;
+package com.screenshort;
 
 import java.awt.*;
 import java.awt.event.ActionListener;
@@ -26,8 +26,8 @@ public class GUI implements ContextMenuItemsProvider {
     @Override
     public List<Component> provideMenuItems(ContextMenuEvent event) {
         List<Component> menuItems = new ArrayList<>();
-        JMenuItem menuItem = new JMenuItem("Take Screenshot");
-        JMenuItem menuItem1 = new JMenuItem("Long Component");
+        JMenuItem menuItem = new JMenuItem("Normal");
+        JMenuItem menuItem1 = new JMenuItem("Full");
 
         HttpRequestResponse requestResponse = event.messageEditorRequestResponse().isPresent()
                 ? event.messageEditorRequestResponse().get().requestResponse()
@@ -40,10 +40,7 @@ public class GUI implements ContextMenuItemsProvider {
             @Override
             public void actionPerformed(ActionEvent e) {
                 Frame frame = api.userInterface().swingUtils().suiteFrame();
-                Point mousePos = MouseInfo.getPointerInfo().getLocation();
-                SwingUtilities.convertPointFromScreen(mousePos, frame);
-                Component component = SwingUtilities.getDeepestComponentAt(frame, mousePos.x, mousePos.y);
-                Component rrvSplitViewerSplitPane = reverseRecurse(component, 50);
+                Component rrvSplitViewerSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", frame);
                 action.takeScreenshot(rrvSplitViewerSplitPane);
             }
         });
@@ -54,21 +51,7 @@ public class GUI implements ContextMenuItemsProvider {
                 api.logging().logToOutput("Long Component Action Triggered");
                 try {
                     Frame frame = api.userInterface().swingUtils().suiteFrame();
-                    // Component rrvSplitViewerSplitPane = getComponetByName(frame,
-                    // "rrvSplitViewerSplitPane");
-                    // Component reqComp = getComponetByName(rrvSplitViewerSplitPane,
-                    // "rrvRequestsPane");
-                    // Component syntaxTextAreaReq = getComponetByName(reqComp, "syntaxTextArea");
-                    // Component resComp = getComponetByName(rrvSplitViewerSplitPane,
-                    // "rrvResponsePane");
-                    // Component syntaxTextAreaRes = getComponetByName(resComp, "syntaxTextArea");
-                    // action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
-                    // action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
-                    // action.takeScreenshot2();
-                    Point mousePos = MouseInfo.getPointerInfo().getLocation();
-                    SwingUtilities.convertPointFromScreen(mousePos, frame);
-                    Component component = SwingUtilities.getDeepestComponentAt(frame, mousePos.x, mousePos.y);
-                    Component rrvSplitViewerSplitPane = reverseRecurse(component, 50);
+                    Component rrvSplitViewerSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", frame);
                     Component reqComp = getComponetByName(rrvSplitViewerSplitPane, "rrvRequestsPane");
                     Component syntaxTextAreaReq = getComponetByName(reqComp, "syntaxTextArea");
                     Component resComp = getComponetByName(rrvSplitViewerSplitPane, "rrvResponsePane");
@@ -76,8 +59,6 @@ public class GUI implements ContextMenuItemsProvider {
                     action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
                     action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
                     action.takeScreenshot2();
-                    // printComponentTree(com5, "");
-                    // api.logging().logToOutput("Component at mouse position: " + com5);
                 } catch (Exception ex) {
                     api.logging().logToError("Error: " + ex.getMessage());
                 }
@@ -90,15 +71,11 @@ public class GUI implements ContextMenuItemsProvider {
         return menuItems;
     }
 
-    Component reverseRecurse(Component component, int num) {
-        if (component.getParent() == null) {
-            return component;
-        }
-        if (num == 0 || component.getName() == "rrvSplitViewerSplitPane") {
-            return component;
-        }
-
-        return reverseRecurse(component.getParent(), num - 1);
+    public Component findComponentUnderMouse(String name, Component parent) {
+        Point location = MouseInfo.getPointerInfo().getLocation();
+        SwingUtilities.convertPointFromScreen(location, parent);
+        Component deepest = SwingUtilities.getDeepestComponentAt(parent, location.x, location.y);
+        return SwingUtilities.getAncestorNamed(name, deepest);
     }
 
     Component getComponetByName(Component component, String name) {
@@ -108,6 +85,21 @@ public class GUI implements ContextMenuItemsProvider {
         if (component instanceof Container) {
             for (Component child : ((Container) component).getComponents()) {
                 Component result = (Container) getComponetByName(child, name);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+        return null;
+    }
+    
+    Component getComponentByClass(Component comp, String classname){
+        if (comp.getClass().getName().equals(classname)) {
+            return comp;
+        }
+        if (comp instanceof Container) {
+            for (Component child : ((Container) comp).getComponents()) {
+                Component result = getComponentByClass(child, classname);
                 if (result != null) {
                     return result;
                 }
