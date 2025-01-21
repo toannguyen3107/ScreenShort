@@ -9,6 +9,7 @@ import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.core.ToolType;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
@@ -28,7 +29,8 @@ public class GUI implements ContextMenuItemsProvider {
         List<Component> menuItems = new ArrayList<>();
         JMenuItem menuItem = new JMenuItem("Normal");
         JMenuItem menuItem1 = new JMenuItem("Full");
-
+        JMenuItem menuItem2 = new JMenuItem("Full - Edited Request");
+        JMenuItem menuItem3 = new JMenuItem("Full - Original Request");
         HttpRequestResponse requestResponse = event.messageEditorRequestResponse().isPresent()
                 ? event.messageEditorRequestResponse().get().requestResponse()
                 : event.selectedRequestResponses().get(0);
@@ -48,7 +50,6 @@ public class GUI implements ContextMenuItemsProvider {
         menuItem1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                api.logging().logToOutput("Long Component Action Triggered");
                 try {
                     Frame frame = api.userInterface().swingUtils().suiteFrame();
                     Component rrvSplitViewerSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", frame);
@@ -66,9 +67,96 @@ public class GUI implements ContextMenuItemsProvider {
             }
         });
 
+        menuItem2.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    Frame frame = api.userInterface().swingUtils().suiteFrame();
+                    Component rrvSplitViewerSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", frame);
+                    // request pane
+                    Component reqComp = getComponetByName(rrvSplitViewerSplitPane, "rrvRequestsPane");
+                    List<Component> components = findAllComponentsByName(reqComp, "syntaxTextArea");
+                    if (components.size() < 2) {
+                        api.logging().logToOutput("No syntaxTextArea found");
+                        return;
+                    }
+                    Component syntaxTextAreaReq = components.get(1);
+                    // request pane
+                    Component resComp = getComponetByName(rrvSplitViewerSplitPane, "rrvResponsePane");
+                    components = findAllComponentsByName(resComp, "syntaxTextArea");
+                    if (components.size() < 2) {
+                        Component syntaxTextAreaRes = getComponetByName(resComp, "syntaxTextArea");
+                        action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
+                        action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
+                        action.takeScreenshot2();
+                        return;
+                    }
+                    Component syntaxTextAreaRes = components.get(1);
+                    action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
+                    action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
+                    action.takeScreenshot2();
+                } catch (Exception ex) {
+                    api.logging().logToError("Error: " + ex.getMessage());
+                }
+            }
+        });
+
+        // this function prepares the screenshot, if original image is under edited
+        menuItem3.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    Frame frame = api.userInterface().swingUtils().suiteFrame();
+                    Component rrvSplitViewerSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", frame);
+                    // request pane
+                    Component reqComp = getComponetByName(rrvSplitViewerSplitPane, "rrvRequestsPane");
+                    List<Component> components = findAllComponentsByName(reqComp, "syntaxTextArea");
+                    if (components.size() < 2) {
+                        api.logging().logToOutput("No syntaxTextArea found");
+                        action.clearImages();
+                        return;
+                    }
+                    Component syntaxTextAreaReq = components.get(0);
+                    // request pane
+                    Component resComp = getComponetByName(rrvSplitViewerSplitPane, "rrvResponsePane");
+                    components = findAllComponentsByName(resComp, "syntaxTextArea");
+                    if (components.size() < 2) {
+                        Component syntaxTextAreaRes = getComponetByName(resComp, "syntaxTextArea");
+                        action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
+                        action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
+                        action.takeScreenshot2();
+                        return;
+                    }
+                    Component syntaxTextAreaRes = components.get(0);
+                    action.takeScreenshotAndGetBufferImage(syntaxTextAreaReq);
+                    action.takeScreenshotAndGetBufferImage(syntaxTextAreaRes);
+                    action.takeScreenshot2();
+                } catch (Exception ex) {
+                    api.logging().logToError("Error: " + ex.getMessage());
+                }
+            }
+        });
+
         menuItems.add(menuItem);
         menuItems.add(menuItem1);
+        if (event.isFromTool(ToolType.PROXY)) {
+            menuItems.add(menuItem2);
+            menuItems.add(menuItem3);
+        }
         return menuItems;
+    }
+
+    public List<Component> findAllComponentsByName(Component parent, String name) {
+        List<Component> matchingComponents = new ArrayList<>();
+        if (name.equals(parent.getName())) {
+            matchingComponents.add(parent);
+        }
+        if (parent instanceof Container) {
+            for (Component child : ((Container) parent).getComponents()) {
+                matchingComponents.addAll(findAllComponentsByName(child, name));
+            }
+        }
+        return matchingComponents;
     }
 
     public Component findComponentUnderMouse(String name, Component parent) {
@@ -92,8 +180,8 @@ public class GUI implements ContextMenuItemsProvider {
         }
         return null;
     }
-    
-    Component getComponentByClass(Component comp, String classname){
+
+    Component getComponentByClass(Component comp, String classname) {
         if (comp.getClass().getName().equals(classname)) {
             return comp;
         }
