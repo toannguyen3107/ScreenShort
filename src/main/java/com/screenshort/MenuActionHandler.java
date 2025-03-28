@@ -100,10 +100,14 @@ public class MenuActionHandler {
         String path = requestResponse.request().path();
         // Request Header
         List<HttpHeader> headersRequest = requestResponse.request().headers();
+
         String headersToString = headersRequest.stream()
                 .map(HttpHeader::toString)
                 .reduce((header1, header2) -> header1 + "\n" + header2)
                 .orElse(""); // use reduce to concatenate headers
+        String firstLineOfReqHead = method + "   " + path + "   " + requestResponse.request().httpVersion() + "\n";
+
+        headersToString = firstLineOfReqHead + headersToString;
         // Response Header
         List<HttpHeader> headersResponse = requestResponse.response().headers();
         String headersResponseToString = headersResponse.stream()
@@ -160,7 +164,12 @@ public class MenuActionHandler {
             tmp += cookie.name() + " | ";
         }
         tmp += "\n\n______ RAW ______\n";
-        // ------------------------------------------------
+        // reqeust beautify
+        ByteArray  requestBodyByte1 = requestResponse.request().body();
+
+        // Strip all control characters (0x00 - 0x1F) and non-ASCII characters (0x80+)
+        String requestBody1 = new String(ExcelFormatter.filterValidASCII(requestBodyByte1.getBytes()), StandardCharsets.UTF_8);
+        // -----------------------------------------------
         // method
         excelFormatter.addData(ExcelFormatter.excelFormat(method));
         // host
@@ -177,6 +186,8 @@ public class MenuActionHandler {
         excelFormatter.addData(ExcelFormatter.excelFormat(responseBody));
         // request response raw
         excelFormatter.addData(ExcelFormatter.excelFormat(tmp));
+        // request body beautify
+        excelFormatter.addData(ExcelFormatter.excelFormat(requestBody1));
         // ------------------------------------------------
         // Copy to clipboard
         String data = excelFormatter.getData();
