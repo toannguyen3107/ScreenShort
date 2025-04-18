@@ -208,7 +208,7 @@ public class MenuActionHandler {
         int portService = httpService.port();
         String host = hostService + ":" + portService;
         // Path
-        String path = requestResponse.request().path();
+        String path = requestResponse.request().path().split("\\?")[0];
         // Request Header
         List<HttpHeader> headersRequest = requestResponse.request().headers();
         String headersToString = headersRequest.stream()
