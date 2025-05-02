@@ -1,4 +1,4 @@
-# Your Extension Name (Example: Data Formatting Extension)
+# ScreenShort
 
 This is a simple extension for Burp Suite Community/Professional developed using the Burp Extension API (Montoya). This extension adds options to the context menu to help you quickly manipulate and extract data from HTTP Request/Response.
 
