@@ -50,4 +50,4 @@ Consists of 2 packages: `com.screenshort` and `com.screenshort.utils`.
 
 ## Author
 
-`@toannguyen3107`
+`@toannguyen3107`, `@nquangit` (contributor)
