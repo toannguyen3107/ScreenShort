@@ -53,5 +53,5 @@ Consists of 2 packages: `com.screenshort` and `com.screenshort.utils`.
 `@toannguyen3107`
 
 ## Contributing (Optional)
-
+@nquangit
 Contributions are welcome! If you find bugs or have ideas for improvements, please open an issue or submit a pull request.
