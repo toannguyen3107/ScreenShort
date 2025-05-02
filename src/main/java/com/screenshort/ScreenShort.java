@@ -9,7 +9,7 @@ public class ScreenShort implements BurpExtension{
         api.extension().setName("ScreenShort");
 
         api.logging().logToOutput("ScreenShort extension initialized");
-        api.logging().logToOutput("Copyright @toancse v - 1.1");
+        api.logging().logToOutput("Copyright @toancse - 1.4");
 
         api.userInterface().registerContextMenuItemsProvider(new GUI(api));
 
