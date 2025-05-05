@@ -17,6 +17,7 @@ public class GenDataToJson {
             return "{}";
         }
         StringBuilder jsonBuilder = new StringBuilder();
+        // ---------------- headers ----------------
         jsonBuilder.append("{");
         jsonBuilder.append("\"headers\": {");
         List<HttpHeader> headers = requestResponse.request().headers();
@@ -30,7 +31,9 @@ public class GenDataToJson {
             }
         }
         jsonBuilder.append("},");
+        // ---------------- method ----------------
         jsonBuilder.append("\"method\": \"").append(escapeJsonString(requestResponse.request().method())).append("\",");
+        // ---------------- query ----------------
         jsonBuilder.append("\"query\": [");
         List<ParsedHttpParameter> queryParams = requestResponse.request().parameters(HttpParameterType.URL);
         for (int i = 0; i < queryParams.size(); i++) {
@@ -64,6 +67,7 @@ public class GenDataToJson {
         jsonBuilder.append("\"isProxy\": true,");
         String url = requestResponse.request().url().toString();
         url = escapeJsonString(url);
+        
         jsonBuilder.append("\"url\": \"").append(url).append("\"");
         jsonBuilder.append("}");
         return jsonBuilder.toString();
