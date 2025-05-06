@@ -7,21 +7,20 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.*; // Import event classes
-import java.awt.geom.Area; // Import geom classes
+import java.awt.event.*;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.File; // For JFileChooser
-import java.io.IOException; // Import cho IOException trong Transferable
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import javax.imageio.ImageIO; // For ImageIO
-import javax.swing.*; // Import swing classes
-import javax.swing.border.EmptyBorder; // For borders
-import javax.swing.JScrollPane; // <-- Import JScrollPane
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter; // Import FileNameExtensionFilter
 
 
 public class ScreenshotUtils {
@@ -34,8 +33,6 @@ public class ScreenshotUtils {
         this.api = api;
     }
 
-    // --- Static Helper Methods (Component Finding) ---
-    // ... (findComponentUnderMouse, getComponentByName, etc. - assumed to be here) ...
     public static Component findComponentUnderMouse(String name, Component parent) {
          try {
              Point location = MouseInfo.getPointerInfo().getLocation();
@@ -55,7 +52,10 @@ public class ScreenshotUtils {
              }
              return null;
         } catch (Exception e) {
+            // Consider logging this via api.logging() if possible, otherwise System.err
             System.err.println("Error in findComponentUnderMouse: " + e.getMessage());
+            // If api is accessible statically or via instance:
+            // api.logging().logToError("Error in findComponentUnderMouse: " + e.getMessage());
             return null;
         }
     }
@@ -76,7 +76,7 @@ public class ScreenshotUtils {
         return null;
     }
 
-    public static List<Component> findAllComponentsByName(Component parent, String name) {
+     public static List<Component> findAllComponentsByName(Component parent, String name) {
          List<Component> matchingComponents = new ArrayList<>();
          if (parent == null) return matchingComponents;
          if (name != null && name.equals(parent.getName())) {
@@ -105,9 +105,10 @@ public class ScreenshotUtils {
         return null;
     }
 
+
     // --- Image Handling Methods ---
     // ... (clearImages, captureComponentToBuffer, combineBufferedImagesHorizontally, ImageSelection - assumed here) ...
-    private void clearImages(){
+     private void clearImages(){
         api.logging().logToOutput("Clearing image buffer.");
         images.clear();
     }
@@ -126,9 +127,15 @@ public class ScreenshotUtils {
                 api.logging().logToOutput(String.format("Component size is invalid (width: %d, height: %d). Cannot capture.", w, h));
                 return;
             }
+            // Use TYPE_INT_ARGB if transparency might be needed, otherwise RGB is fine
             BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
             Graphics2D g = image.createGraphics();
-            component.paint(g);
+            // Ensure background is painted if component is opaque=false but we want its content
+            if (!component.isOpaque() && component.getBackground() != null) {
+                g.setColor(component.getBackground());
+                g.fillRect(0, 0, w, h);
+            }
+            component.paint(g); // Use paint for better component rendering than print
             g.dispose();
             images.add(image);
             api.logging().logToOutput(String.format("Captured component screenshot for buffer (size: %dx%d). Buffer size: %d", w, h, images.size()));
@@ -139,7 +146,7 @@ public class ScreenshotUtils {
 
      private void copyImageToClipboard(BufferedImage image) {
          if (image == null) {
-             api.logging().logToOutput("Cannot copy a null image to clipboard.");
+             api.logging().logToError("Cannot copy a null image to clipboard."); // Changed log level
              return;
          }
           try {
@@ -149,6 +156,8 @@ public class ScreenshotUtils {
              api.logging().logToOutput("Image copied to clipboard.");
           } catch (IllegalStateException e) {
               api.logging().logToError("Error accessing system clipboard (perhaps headless?): " + e.toString(), e);
+              // Optionally show a message dialog if appropriate in the context
+              // JOptionPane.showMessageDialog(null, "Could not access system clipboard.", "Clipboard Error", JOptionPane.WARNING_MESSAGE);
           } catch (Exception e) {
              api.logging().logToError("Error copying image to clipboard: " + e.toString(), e);
           }
@@ -157,14 +166,22 @@ public class ScreenshotUtils {
     private BufferedImage combineBufferedImagesHorizontally() {
         api.logging().logToOutput("Attempting to combine images from buffer...");
         try {
-            if (images.size() < 2) {
-                api.logging().logToOutput("Buffer contains less than 2 images. Cannot combine.");
+            if (images.isEmpty()) { // Check if empty first
+                api.logging().logToOutput("Buffer is empty. Cannot combine.");
                 return null;
             }
+            if (images.size() == 1) { // If only one, return it directly
+                 api.logging().logToOutput("Buffer contains only 1 image. Returning it directly.");
+                 BufferedImage singleImage = images.get(0);
+                 clearImages(); // Clear buffer even if returning single image
+                 return singleImage;
+            }
+            // Proceed with combining 2 images (assuming buffer only holds max 2 for this logic)
             BufferedImage bf1 = images.get(0);
             BufferedImage bf2 = images.get(1);
             if (bf1 == null || bf2 == null) {
-                api.logging().logToOutput("One or both images in buffer are null. Cannot combine.");
+                api.logging().logToError("One or both images in buffer are null. Cannot combine."); // Changed level
+                clearImages(); // Clear buffer on error
                 return null;
             }
             int borderThickness = 5;
@@ -172,31 +189,38 @@ public class ScreenshotUtils {
             int totalWidth = bf1.getWidth() + bf2.getWidth() + borderThickness;
             int maxHeight = Math.max(bf1.getHeight(), bf2.getHeight());
              if (totalWidth <= 0 || maxHeight <= 0) {
-                api.logging().logToOutput(String.format("Combined image size is invalid (width: %d, height: %d). Cannot combine.", totalWidth, maxHeight));
+                api.logging().logToError(String.format("Combined image size is invalid (width: %d, height: %d). Cannot combine.", totalWidth, maxHeight)); // Changed level
+                clearImages(); // Clear buffer on error
                 return null;
              }
+            // Use TYPE_INT_RGB unless source images have alpha and it needs preserving
             BufferedImage combined = new BufferedImage(totalWidth, maxHeight, BufferedImage.TYPE_INT_RGB);
             Graphics2D g = combined.createGraphics();
-            g.setColor(Color.WHITE);
+            // Fill background explicitly (optional, default is black for RGB)
+            g.setColor(Color.WHITE); // Example background
             g.fillRect(0, 0, totalWidth, maxHeight);
+
             g.drawImage(bf1, 0, 0, null);
             g.setColor(borderColor);
             g.fillRect(bf1.getWidth(), 0, borderThickness, maxHeight);
             g.drawImage(bf2, bf1.getWidth() + borderThickness, 0, null);
             g.dispose();
             api.logging().logToOutput(String.format("Images combined successfully (size: %dx%d).", totalWidth, maxHeight));
+            clearImages(); // Clear buffer after successful combination
             return combined;
         } catch (IndexOutOfBoundsException e) {
             api.logging().logToError("Index Out Of Bounds error when accessing images buffer: " + e.getMessage(), e);
+            clearImages(); // Clear buffer on error
             return null;
         } catch (Exception e) {
             api.logging().logToError("Error in combineBufferedImagesHorizontally: " + e.toString(), e);
+            clearImages(); // Clear buffer on error
             return null;
-        } finally {
-             clearImages();
         }
+        // 'finally { clearImages(); }' removed as clearImages() is called on success/error paths now.
     }
 
+    // Inner class for clipboard transfer (keep as is)
     private static class ImageSelection implements Transferable {
         private final Image image;
         public ImageSelection(Image image) { this.image = image; }
@@ -209,36 +233,50 @@ public class ScreenshotUtils {
     }
 
     // --- Public Methods Called by MenuActionHandler ---
-    // ... (handleNormalScreenshot, handleFullScreenshot, handleAnnotateScreenshot - assumed here) ...
+    // ... (handleNormalScreenshot, handleFullScreenshot - assumed here and correct) ...
      public void handleNormalScreenshot() {
         api.logging().logToOutput("Executing Normal Screenshot (to Annotator)...");
         try {
             Frame suiteFrame = api.userInterface().swingUtils().suiteFrame();
             if (suiteFrame == null) {
-                api.logging().logToOutput("Could not get Burp Suite main frame."); return;
+                api.logging().logToError("Could not get Burp Suite main frame."); return; // Log as error
             }
+            // Try finding the specific component first
             Component targetComponent = findComponentUnderMouse("rrvSplitViewerSplitPane", suiteFrame);
+
+            // Fallback: If specific component not under mouse, try the focused component within the suite frame
             if (targetComponent == null) {
                  api.logging().logToOutput("Could not find 'rrvSplitViewerSplitPane' under mouse. Trying focused component.");
                  targetComponent = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+                 // Ensure the focused component is actually part of the Burp window
                  if (targetComponent == null || !SwingUtilities.isDescendingFrom(targetComponent, suiteFrame)) {
-                      api.logging().logToOutput("No suitable component found under mouse or focused."); return;
+                      api.logging().logToError("No suitable component found under mouse or focused."); // Log as error
+                      // Maybe inform the user?
+                      // JOptionPane.showMessageDialog(suiteFrame, "Could not determine the component to capture.\nPlease ensure the target pane (like Request/Response) has focus or the mouse is over it.", "Capture Error", JOptionPane.WARNING_MESSAGE);
+                      return;
                  }
-                 api.logging().logToOutput("Found focused component: " + targetComponent.getClass().getName());
+                 api.logging().logToOutput("Using focused component: " + targetComponent.getClass().getName() + (targetComponent.getName() != null ? " Name: " + targetComponent.getName() : ""));
+            } else {
+                 api.logging().logToOutput("Using component under mouse: " + targetComponent.getName());
             }
-            api.logging().logToOutput("Taking screenshot of component: " + targetComponent.getName());
+
             int w = targetComponent.getWidth();
             int h = targetComponent.getHeight();
              if (w <= 0 || h <= 0) {
-                api.logging().logToOutput(String.format("Target component size is invalid (width: %d, height: %d). Cannot capture.", w, h));
+                api.logging().logToError(String.format("Target component size is invalid (width: %d, height: %d). Cannot capture.", w, h)); // Log as error
                 return;
             }
             BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
             Graphics2D g = image.createGraphics();
-            targetComponent.paint(g);
+             // Paint background if needed, then the component
+            if (!targetComponent.isOpaque() && targetComponent.getBackground() != null) {
+                g.setColor(targetComponent.getBackground());
+                g.fillRect(0, 0, w, h);
+            }
+            targetComponent.paint(g); // Use paint
             g.dispose();
             api.logging().logToOutput("Normal screenshot captured. Launching annotator...");
-            launchAnnotationEditor(image);
+            launchAnnotationEditor(image); // Launch the editor
         } catch (Exception ex) {
              api.logging().logToError("Error in handleNormalScreenshot: " + ex.toString(), ex);
         }
@@ -246,108 +284,88 @@ public class ScreenshotUtils {
 
     public void handleFullScreenshot() {
         api.logging().logToOutput("Executing Full Screenshot (Req/Res to Annotator)...");
-        clearImages();
+        clearImages(); // Start fresh
         try {
             Frame suiteFrame = api.userInterface().swingUtils().suiteFrame();
              if (suiteFrame == null) {
-                api.logging().logToOutput("Full Screenshot: Could not get Burp Suite main frame."); return;
+                api.logging().logToError("Full Screenshot: Could not get Burp Suite main frame."); return;
             }
-            Component targetSplitPane = findComponentUnderMouse("rrvSplitViewerSplitPane", suiteFrame);
+            // Find the split pane regardless of mouse position, assuming it's consistently named/structured
+            // This might need adjustment based on Burp's actual UI structure if the name isn't reliable
+            // A more robust approach might involve finding the main tabbed pane and navigating down.
+            // For now, let's assume finding by name works often enough.
+            Component targetSplitPane = findComponentByNameRecursively(suiteFrame, "rrvSplitViewerSplitPane"); // Helper needed
+
              if (targetSplitPane == null) {
-                 api.logging().logToOutput("Full Screenshot: Could not find 'rrvSplitViewerSplitPane' component under mouse."); return;
+                 api.logging().logToError("Full Screenshot: Could not find 'rrvSplitViewerSplitPane' component in the frame.");
+                 // Attempt fallback if needed, e.g., checking active tab
+                 return;
              }
              api.logging().logToOutput("Full Screenshot: Found target split pane.");
-            Component reqComp = getComponentByName(targetSplitPane, "rrvRequestsPane");
-            Component resComp = getComponentByName(targetSplitPane, "rrvResponsePane");
+
+            // Find Request/Response panes within the located split pane
+            Component reqComp = findComponentByNameRecursively(targetSplitPane, "rrvRequestsPane");
+            Component resComp = findComponentByNameRecursively(targetSplitPane, "rrvResponsePane");
+
              if (reqComp == null || resComp == null) {
-                 api.logging().logToOutput("Full Screenshot: Could not find Request or Response panes within the target split pane."); return;
+                 api.logging().logToError("Full Screenshot: Could not find Request or Response panes within the target split pane."); return;
              }
               api.logging().logToOutput("Full Screenshot: Found request and response panes.");
-            java.util.List<Component> reqTextAreas = findAllComponentsByName(reqComp, "syntaxTextArea");
-            java.util.List<Component> resTextAreas = findAllComponentsByName(resComp, "syntaxTextArea");
-            if (reqTextAreas.isEmpty() || resTextAreas.isEmpty()) {
-                api.logging().logToOutput(String.format("Full Screenshot: Could not find syntaxTextArea in Req (%d found) or Res (%d found). Cannot take screenshot.", reqTextAreas.size(), resTextAreas.size()));
+
+            // Find the text areas within request/response panes
+            // Using findAllComponentsByName might be safer if there could be multiple or nested ones
+            Component syntaxTextAreaReq = findComponentByNameRecursively(reqComp, "syntaxTextArea");
+            Component syntaxTextAreaRes = findComponentByNameRecursively(resComp, "syntaxTextArea");
+
+            if (syntaxTextAreaReq == null || syntaxTextAreaRes == null) {
+                api.logging().logToError(String.format("Full Screenshot: Could not find syntaxTextArea in Req (%s found) or Res (%s found). Cannot take screenshot.",
+                    syntaxTextAreaReq != null, syntaxTextAreaRes != null));
                 return;
             }
-            api.logging().logToOutput("Full Screenshot: Found first syntaxTextAreas.");
-            Component syntaxTextAreaReq = reqTextAreas.get(0);
-            Component syntaxTextAreaRes = resTextAreas.get(0);
+            api.logging().logToOutput("Full Screenshot: Found syntaxTextAreas.");
+
+            // Capture both components
             captureComponentToBuffer(syntaxTextAreaReq);
             captureComponentToBuffer(syntaxTextAreaRes);
+
+            // Combine (combineBufferedImagesHorizontally now clears the buffer)
             BufferedImage combinedImage = combineBufferedImagesHorizontally();
+
             if (combinedImage != null) {
                  api.logging().logToOutput("Full Screenshot: Screenshot combined. Launching annotator...");
-                 launchAnnotationEditor(combinedImage);
+                 launchAnnotationEditor(combinedImage); // Launch editor with combined image
             } else {
-                 api.logging().logToOutput("Full Screenshot: Screenshot failed due to image combining issues.");
+                 api.logging().logToError("Full Screenshot: Screenshot failed - combined image was null.");
+                 // Buffer should be clear already due to combineBufferedImagesHorizontally logic
             }
         } catch (Exception ex) {
             api.logging().logToError("Error in handleFullScreenshot: " + ex.toString(), ex);
-             clearImages();
+             clearImages(); // Ensure buffer is cleared on unexpected errors
         }
     }
 
-     public void handleAnnotateScreenshot() {
-        api.logging().logToOutput("Executing Annotate Region...");
-        SwingUtilities.invokeLater(() -> {
-            try {
-                final int BORDER = 3, GRIP = 6, BTN_W = 90, BTN_H = 30;
-                final JWindow overlay = new JWindow();
-                overlay.setBounds(200, 200, 600, 350);
-                overlay.setAlwaysOnTop(true);
-                overlay.setFocusableWindowState(true);
-                Color CLEAR = new Color(0, 0, 0, 0);
-                overlay.setBackground(CLEAR);
-                if (overlay.getContentPane() instanceof JComponent) ((JComponent) overlay.getContentPane()).setOpaque(false);
-                 overlay.getRootPane().setOpaque(false);
-                overlay.getContentPane().setLayout(null);
-                final Runnable updateShape = () -> { /* ... shape update logic ... */ }; // Assume shape logic is correct
-                overlay.addComponentListener(new ComponentAdapter() { /* ... listener for shape update ... */ });
-                JComponent framePainter = new JComponent() { /* ... painter logic ... */ };
-                framePainter.setBounds(0, 0, overlay.getWidth(), overlay.getHeight());
-                overlay.setContentPane(framePainter);
-                overlay.getContentPane().setLayout(null);
-                updateShape.run();
-                final JButton capture = new JButton("Capture");
-                capture.setBounds(BORDER + 4, BORDER + 4, BTN_W, BTN_H);
-                capture.setFocusable(false);
-                overlay.getContentPane().add(capture);
-                MouseAdapter mover = new MouseAdapter() { /* ... move/resize logic ... */ };
-                framePainter.addMouseListener(mover);
-                framePainter.addMouseMotionListener(mover);
-                capture.addActionListener(ev -> {
-                    try {
-                        Rectangle reg = overlay.getBounds();
-                        reg.x += BORDER; reg.y += BORDER;
-                        reg.width -= BORDER * 2; reg.height -= BORDER * 2;
-                        if (reg.width <= 0 || reg.height <= 0) {
-                            api.logging().logToOutput("Annotation region is too small to capture.");
-                            overlay.dispose(); return;
-                        }
-                        overlay.setVisible(false);
-                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                        BufferedImage snap = new Robot().createScreenCapture(reg);
-                        overlay.dispose();
-                        launchAnnotationEditor(snap);
-                    } catch (AWTException | SecurityException ex) {
-                        api.logging().logToError("Error during region capture setup/Robot: " + ex.toString(), ex);
-                        overlay.dispose();
-                    } catch (Exception ex) {
-                         api.logging().logToError("Error during region capture or editor launch: " + ex.toString(), ex);
-                         overlay.dispose();
-                    }
-                });
-                overlay.setVisible(true);
-                 api.logging().logToOutput("Annotation overlay displayed.");
-            } catch (Exception ex) {
-                api.logging().logToError("Error setting up annotation overlay: " + ex.toString(), ex);
+    // Helper for recursive search (used in handleFullScreenshot)
+    private static Component findComponentByNameRecursively(Component parent, String name) {
+        if (parent == null || name == null) return null;
+        if (name.equals(parent.getName())) {
+            return parent;
+        }
+        if (parent instanceof Container) {
+            for (Component child : ((Container) parent).getComponents()) {
+                Component found = findComponentByNameRecursively(child, name);
+                if (found != null) {
+                    return found;
+                }
             }
-        });
+        }
+        return null;
     }
 
-    // --- THE FUNCTION IN QUESTION ---
+
+    // --- THE UPDATED ANNOTATION EDITOR LAUNCHER ---
     /**
      * Creates and displays the annotation editor window.
+     * Now opens maximized and includes Ctrl+C / Ctrl+S hotkeys.
      * @param snap The initial BufferedImage captured.
      */
     private void launchAnnotationEditor(final BufferedImage snap) {
@@ -371,7 +389,8 @@ public class ScreenshotUtils {
                 // --- Image display + layered drawing pane ---
                 JLabel imgLabel = new JLabel(new ImageIcon(snap));
                 JLayeredPane stack = new JLayeredPane();
-                stack.setPreferredSize(new Dimension(snap.getWidth(), snap.getHeight())); // Set preferred size for scrollpane
+                // Set preferred size based on image for initial layout calculation
+                stack.setPreferredSize(new Dimension(snap.getWidth(), snap.getHeight()));
                 imgLabel.setBounds(0, 0, snap.getWidth(), snap.getHeight());
                 stack.add(imgLabel, JLayeredPane.DEFAULT_LAYER);
 
@@ -388,29 +407,49 @@ public class ScreenshotUtils {
 
                 // --- Drawing component (transparent overlay) ---
                 final JComponent drawCanvas = new JComponent() {
-                    { setOpaque(false); }
+                    { setOpaque(false); } // Make canvas transparent
                     @Override
                     protected void paintComponent(Graphics g) {
                         super.paintComponent(g);
                         Graphics2D g2 = (Graphics2D) g.create();
-                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g2.setStroke(new BasicStroke(STROKE_WIDTH));
-                        // Draw existing shapes
-                        for (int i = 0; i < shapes.size(); i++) {
-                            g2.setColor(cols.get(i));
-                            Shape s = shapes.get(i); String k = kinds.get(i);
-                            if ("HIGHLIGHT".equals(k)) g2.fill(s); else g2.draw(s);
+                        try {
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2.setStroke(new BasicStroke(STROKE_WIDTH));
+                            // Draw existing shapes
+                            for (int i = 0; i < shapes.size(); i++) {
+                                g2.setColor(cols.get(i)); // Color already includes alpha if needed
+                                Shape s = shapes.get(i);
+                                String k = kinds.get(i);
+                                if ("HIGHLIGHT".equals(k)) {
+                                    g2.fill(s);
+                                } else {
+                                    g2.draw(s);
+                                }
+                            }
+                            // Draw preview shape
+                            if (previewShape[0] != null && startDrag[0] != null) {
+                                g2.setColor(getColorForMode(curCol[0], mode[0], HIGHLIGHT_ALPHA));
+                                if ("HIGHLIGHT".equals(mode[0])) {
+                                    g2.fill(previewShape[0]);
+                                } else {
+                                    g2.draw(previewShape[0]);
+                                }
+                            }
+                        } finally {
+                            g2.dispose(); // Ensure graphics context is always disposed
                         }
-                        // Draw preview shape
-                        if (previewShape[0] != null && startDrag[0] != null) {
-                             g2.setColor(getColorForMode(curCol[0], mode[0], HIGHLIGHT_ALPHA));
-                             if ("HIGHLIGHT".equals(mode[0])) g2.fill(previewShape[0]); else g2.draw(previewShape[0]);
-                        }
-                        g2.dispose();
+                    }
+                     // Set preferred size for the drawing canvas itself
+                    @Override
+                    public Dimension getPreferredSize() {
+                        return new Dimension(snap.getWidth(), snap.getHeight());
                     }
                 };
-                drawCanvas.setBounds(0, 0, snap.getWidth(), snap.getHeight());
-                stack.add(drawCanvas, JLayeredPane.PALETTE_LAYER);
+                // Set bounds AFTER stack is added to scrollpane or parent layout manages it
+                // We set preferredSize on stack earlier, now set drawCanvas size too
+                // drawCanvas.setPreferredSize(new Dimension(snap.getWidth(), snap.getHeight())); // Set via override instead
+                drawCanvas.setBounds(0, 0, snap.getWidth(), snap.getHeight()); // Still needed for JLayeredPane layout
+                stack.add(drawCanvas, JLayeredPane.PALETTE_LAYER); // Add drawing canvas on top
 
                 // --- Mouse listener for drawing ---
                 MouseAdapter drawListener = new MouseAdapter() {
@@ -420,20 +459,41 @@ public class ScreenshotUtils {
                     @Override public void mouseDragged(MouseEvent e) {
                         if (startDrag[0] == null) return;
                         Point p = e.getPoint();
+                        // Prevent drawing outside image bounds (optional but good practice)
+                        p.x = Math.max(0, Math.min(p.x, snap.getWidth() - 1));
+                        p.y = Math.max(0, Math.min(p.y, snap.getHeight() - 1));
+
                         if ("LINE".equals(mode[0])) {
                             previewShape[0] = new Line2D.Double(startDrag[0], p);
-                        } else {
-                            int x = Math.min(startDrag[0].x, p.x), y = Math.min(startDrag[0].y, p.y);
-                            int w = Math.abs(p.x - startDrag[0].x), h = Math.abs(p.y - startDrag[0].y);
+                        } else { // RECT or HIGHLIGHT
+                            int x = Math.min(startDrag[0].x, p.x);
+                            int y = Math.min(startDrag[0].y, p.y);
+                            int w = Math.abs(p.x - startDrag[0].x);
+                            int h = Math.abs(p.y - startDrag[0].y);
+                            // Ensure minimum size 1x1 to avoid issues with zero-dimension shapes
                             previewShape[0] = new Rectangle2D.Double(x, y, Math.max(w, 1), Math.max(h, 1));
                         }
                         drawCanvas.repaint();
                     }
                     @Override public void mouseReleased(MouseEvent e) {
                         if (startDrag[0] != null && previewShape[0] != null) {
-                            shapes.add(previewShape[0]);
-                            cols.add(getColorForMode(curCol[0], mode[0], HIGHLIGHT_ALPHA));
-                            kinds.add(mode[0]);
+                            // Only add if the shape has non-zero dimensions (for rect/highlight)
+                            boolean hasSize = true;
+                            if (previewShape[0] instanceof Rectangle2D) {
+                                Rectangle2D r = (Rectangle2D) previewShape[0];
+                                hasSize = r.getWidth() > 1 && r.getHeight() > 1; // Require more than 1 pixel?
+                            } else if (previewShape[0] instanceof Line2D) {
+                                Line2D l = (Line2D) previewShape[0];
+                                hasSize = !l.getP1().equals(l.getP2()); // Check if start/end points differ
+                            }
+
+                            if (hasSize) {
+                                shapes.add(previewShape[0]);
+                                cols.add(getColorForMode(curCol[0], mode[0], HIGHLIGHT_ALPHA));
+                                kinds.add(mode[0]);
+                            } else {
+                                api.logging().logToOutput("Ignoring zero-size shape draw attempt.");
+                            }
                         }
                         startDrag[0] = null; previewShape[0] = null; drawCanvas.repaint();
                     }
@@ -443,9 +503,13 @@ public class ScreenshotUtils {
 
                 // --- Wrap the Layered Pane in a Scroll Pane ---
                 JScrollPane scrollPane = new JScrollPane(stack);
-                scrollPane.setPreferredSize(new Dimension(Math.min(snap.getWidth(), 800), Math.min(snap.getHeight(), 600)));
+                // Let the scrollpane determine its preferred size based on content and screen,
+                // pack() will handle initial sizing, maximization handles fullscreen.
                 scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
                 scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                // Improve scrolling speed slightly
+                scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+                scrollPane.getHorizontalScrollBar().setUnitIncrement(16);
                 root.add(scrollPane, BorderLayout.CENTER); // Add scrollPane to center
 
                 // --- Toolbar ---
@@ -460,206 +524,335 @@ public class ScreenshotUtils {
                     if (comp instanceof JComponent) {
                          ((JComponent) comp).setAlignmentX(Component.CENTER_ALIGNMENT);
                          Dimension prefSize = comp.getPreferredSize();
+                         // Allow button to use its preferred height, constrain width
                          comp.setMaximumSize(new Dimension(BAR_W - 16, prefSize.height));
                     }
                      bar.add(comp);
-                     bar.add(Box.createRigidArea(new Dimension(0, 5)));
+                     bar.add(Box.createRigidArea(new Dimension(0, 5))); // Spacing
                  };
 
                 // --- Shape Radio Buttons ---
                 ButtonGroup grpShape = new ButtonGroup();
-                JToggleButton rBtn = new JToggleButton("Rect", true); JToggleButton lBtn = new JToggleButton("Line"); JToggleButton hBtn = new JToggleButton("Highlight");
+                JToggleButton rBtn = new JToggleButton("Rect", true); // Default selected
+                JToggleButton lBtn = new JToggleButton("Line");
+                JToggleButton hBtn = new JToggleButton("Highlight");
                 grpShape.add(rBtn); grpShape.add(lBtn); grpShape.add(hBtn);
                 ActionListener shapeListener = a -> {
-                    if (a.getSource() == rBtn) mode[0] = "RECT"; else if (a.getSource() == lBtn) mode[0] = "LINE"; else if (a.getSource() == hBtn) mode[0] = "HIGHLIGHT";
-                     if ("LINE".equals(mode[0])) drawCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-                     else drawCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-                     api.logging().logToOutput("Annotation mode set to: " + mode[0]);
+                    String oldMode = mode[0];
+                    if (a.getSource() == rBtn) mode[0] = "RECT";
+                    else if (a.getSource() == lBtn) mode[0] = "LINE";
+                    else if (a.getSource() == hBtn) mode[0] = "HIGHLIGHT";
+
+                    // Set cursor based on mode
+                     if ("LINE".equals(mode[0])) {
+                         drawCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR)); // Crosshair might be better for line too
+                     } else { // RECT, HIGHLIGHT
+                         drawCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+                     }
+                     if (!mode[0].equals(oldMode)) {
+                        api.logging().logToOutput("Annotation mode set to: " + mode[0]);
+                     }
                 };
-                rBtn.addActionListener(shapeListener); lBtn.addActionListener(shapeListener); hBtn.addActionListener(shapeListener);
-                addToolbarComponent.accept(rBtn); addToolbarComponent.accept(lBtn); addToolbarComponent.accept(hBtn);
-                bar.add(Box.createRigidArea(new Dimension(0, 10)));
+                rBtn.addActionListener(shapeListener);
+                lBtn.addActionListener(shapeListener);
+                hBtn.addActionListener(shapeListener);
+                addToolbarComponent.accept(rBtn);
+                addToolbarComponent.accept(lBtn);
+                addToolbarComponent.accept(hBtn);
+                bar.add(Box.createRigidArea(new Dimension(0, 10))); // Spacing
                 addToolbarComponent.accept(new JSeparator(SwingConstants.HORIZONTAL));
-                bar.add(Box.createRigidArea(new Dimension(0, 10)));
+                bar.add(Box.createRigidArea(new Dimension(0, 10))); // Spacing
 
                 // --- Color Chooser Button ---
                 JButton colBtn = new JButton("Colour");
-                colBtn.setBackground(curCol[0]); colBtn.setForeground(getContrastColor(curCol[0]));
-                colBtn.setOpaque(true); colBtn.setBorderPainted(false);
+                colBtn.setBackground(curCol[0]);
+                colBtn.setForeground(getContrastColor(curCol[0]));
+                colBtn.setOpaque(true);
+                colBtn.setBorderPainted(false); // Flat look
+                colBtn.setFocusPainted(false); // Remove focus border
                 colBtn.addActionListener(a -> {
-                    Color chosen = JColorChooser.showDialog(editor, "Choose colour", curCol[0]);
+                    Color chosen = JColorChooser.showDialog(editor, "Choose Annotation Colour", curCol[0]);
                     if (chosen != null) {
-                        curCol[0] = chosen; colBtn.setBackground(chosen); colBtn.setForeground(getContrastColor(chosen));
+                        curCol[0] = chosen;
+                        colBtn.setBackground(chosen);
+                        colBtn.setForeground(getContrastColor(chosen));
                         api.logging().logToOutput("Annotation color changed.");
                     }
                 });
                 addToolbarComponent.accept(colBtn);
 
                 // --- Undo Button ---
-                JButton undo = new JButton("Undo");
-                undo.addActionListener(a -> {
-                    if (!shapes.isEmpty()) {
-                        int lastIndex = shapes.size() - 1;
-                        shapes.remove(lastIndex); cols.remove(lastIndex); kinds.remove(lastIndex);
-                        drawCanvas.repaint(); api.logging().logToOutput("Annotation undone.");
-                    } else { api.logging().logToOutput("Nothing to undo."); }
-                });
-                addToolbarComponent.accept(undo);
-
-                bar.add(Box.createVerticalGlue());
-                addToolbarComponent.accept(new JSeparator(SwingConstants.HORIZONTAL));
-                bar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-                // --- Copy Button (with added logging) ---
-                 JButton copyBtn = new JButton("Copy");
-                 copyBtn.addActionListener(a -> {
-                     api.logging().logToOutput("[Copy Button] Action started."); // <-- Log start
-                     api.logging().logToOutput("[Copy Button] Shapes count: " + shapes.size()); // <-- Log data size
-                     api.logging().logToOutput("[Copy Button] Original image size: " + snap.getWidth() + "x" + snap.getHeight()); // <-- Log original size
-                      try {
-                         api.logging().logToOutput("[Copy Button] Calling renderAnnotatedImage..."); // <-- Log before render
-                         BufferedImage finalImage = renderAnnotatedImage(snap, shapes, cols, kinds, STROKE_WIDTH);
-                         api.logging().logToOutput("[Copy Button] renderAnnotatedImage returned: "
-                                 + (finalImage != null ? finalImage.getWidth()+"x"+finalImage.getHeight() : "null")); // <-- Log result
-
-                         // --- Explicit Null Check ---
-                         if (finalImage == null) {
-                            api.logging().logToError("[Copy Button] Error: Rendered image is null!");
-                            JOptionPane.showMessageDialog(editor, "Error copying image:\nRendered image was null.", "Render Error", JOptionPane.ERROR_MESSAGE);
-                            return; // Stop processing
-                         }
-                         // --- End Null Check ---
-
-                         api.logging().logToOutput("[Copy Button] Calling copyImageToClipboard..."); // <-- Log before copy
-                         copyImageToClipboard(finalImage); // Use existing utility method
-                         api.logging().logToOutput("[Copy Button] copyImageToClipboard finished."); // <-- Log after copy
-
-                         JOptionPane.showMessageDialog(editor, "Annotated image copied to clipboard.", "Copied", JOptionPane.INFORMATION_MESSAGE);
-                         editor.dispose(); // Close editor after copy
-                     } catch (Exception ex) {
-                          // Log the full exception details
-                          api.logging().logToError("[Copy Button] Error rendering or copying annotated image: " + ex.toString(), ex);
-                         JOptionPane.showMessageDialog(editor, "Error copying image:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                     } finally {
-                         api.logging().logToOutput("[Copy Button] Action finished."); // <-- Log end
-                     }
-                 });
-                 addToolbarComponent.accept(copyBtn);
-
-                // --- Save Button (with added logging) ---
-                JButton save = new JButton("Save");
-                save.addActionListener(a -> {
-                    api.logging().logToOutput("[Save Button] Action started."); // <-- Log start
-                    api.logging().logToOutput("[Save Button] Shapes count: " + shapes.size()); // <-- Log data size
-                    api.logging().logToOutput("[Save Button] Original image size: " + snap.getWidth() + "x" + snap.getHeight()); // <-- Log original size
-                    try {
-                        api.logging().logToOutput("[Save Button] Calling renderAnnotatedImage..."); // <-- Log before render
-                        BufferedImage finalImage = renderAnnotatedImage(snap, shapes, cols, kinds, STROKE_WIDTH);
-                        api.logging().logToOutput("[Save Button] renderAnnotatedImage returned: "
-                                + (finalImage != null ? finalImage.getWidth()+"x"+finalImage.getHeight() : "null")); // <-- Log result
-
-                        // --- Explicit Null Check ---
-                         if (finalImage == null) {
-                            api.logging().logToError("[Save Button] Error: Rendered image is null!");
-                            JOptionPane.showMessageDialog(editor, "Error saving image:\nRendered image was null.", "Render Error", JOptionPane.ERROR_MESSAGE);
-                            return; // Stop processing
-                         }
-                         // --- End Null Check ---
-
-                        JFileChooser fc = new JFileChooser();
-                        fc.setSelectedFile(new File("annotated_screenshot.png"));
-                        fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG Images", "png"));
-
-                        api.logging().logToOutput("[Save Button] Showing save dialog..."); // <-- Log before dialog
-                        int res = fc.showSaveDialog(editor);
-                        api.logging().logToOutput("[Save Button] Save dialog returned: " + (res == JFileChooser.APPROVE_OPTION ? "Approve" : "Cancel/Error")); // <-- Log dialog result
-
-                        if (res == JFileChooser.APPROVE_OPTION) {
-                            File f = fc.getSelectedFile();
-                             if (!f.getName().toLowerCase().endsWith(".png")) {
-                                 f = new File(f.getParentFile(), f.getName() + ".png");
-                             }
-                            api.logging().logToOutput("[Save Button] Writing image to " + f.getAbsolutePath()); // <-- Log before write
-                            ImageIO.write(finalImage, "png", f);
-                            api.logging().logToOutput("[Save Button] Image writing finished."); // <-- Log after write
-
-                            JOptionPane.showMessageDialog(editor,
-                                    "Saved to:\n" + f.getAbsolutePath(), "Saved", JOptionPane.INFORMATION_MESSAGE);
-                            editor.dispose(); // Close editor after saving
+                // Action for Undo (to allow hotkey)
+                Action undoAction = new AbstractAction("Undo (Ctrl+Z)") {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                         if (!shapes.isEmpty()) {
+                            int lastIndex = shapes.size() - 1;
+                            shapes.remove(lastIndex);
+                            cols.remove(lastIndex);
+                            kinds.remove(lastIndex);
+                            drawCanvas.repaint();
+                            api.logging().logToOutput("Annotation undone.");
                         } else {
-                             api.logging().logToOutput("[Save Button] Save cancelled by user.");
+                            api.logging().logToOutput("Nothing to undo.");
                         }
-                    } catch (IOException ex) {
-                         api.logging().logToError("[Save Button] IO Error saving annotated image: " + ex.toString(), ex);
-                         JOptionPane.showMessageDialog(editor, "Error saving image (I/O):\n" + ex.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
-                    } catch (Exception ex) {
-                         api.logging().logToError("[Save Button] General Error rendering or saving annotated image: " + ex.toString(), ex);
-                         JOptionPane.showMessageDialog(editor, "Error preparing/saving image:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                    } finally {
-                         api.logging().logToOutput("[Save Button] Action finished."); // <-- Log end
                     }
-                });
-                 addToolbarComponent.accept(save);
+                };
+                JButton undoBtn = new JButton(undoAction); // Create button from action
+                addToolbarComponent.accept(undoBtn);
+
+                bar.add(Box.createVerticalGlue()); // Pushes Save/Copy to bottom
+                addToolbarComponent.accept(new JSeparator(SwingConstants.HORIZONTAL));
+                bar.add(Box.createRigidArea(new Dimension(0, 10))); // Spacing
+
+
+                // --- Define Actions for Copy and Save (for Buttons and Hotkeys) ---
+
+                // Copy Action
+                Action copyAction = new AbstractAction("Copy (Ctrl+C)") {
+                    @Override
+                    public void actionPerformed(ActionEvent a) {
+                        api.logging().logToOutput("[Copy Action] Action started via " + a.getActionCommand()); // Log source (button/key)
+                        api.logging().logToOutput("[Copy Action] Shapes count: " + shapes.size());
+                        api.logging().logToOutput("[Copy Action] Original image size: " + snap.getWidth() + "x" + snap.getHeight());
+                        try {
+                            api.logging().logToOutput("[Copy Action] Calling renderAnnotatedImage...");
+                            // Pass necessary parameters to render method
+                            BufferedImage finalImage = renderAnnotatedImage(snap, shapes, cols, kinds, STROKE_WIDTH);
+                            api.logging().logToOutput("[Copy Action] renderAnnotatedImage returned: "
+                                    + (finalImage != null ? finalImage.getWidth()+"x"+finalImage.getHeight() : "null"));
+
+                            if (finalImage == null) {
+                                api.logging().logToError("[Copy Action] Error: Rendered image is null!");
+                                JOptionPane.showMessageDialog(editor, "Error copying image:\nRendered image was null.", "Render Error", JOptionPane.ERROR_MESSAGE);
+                                return; // Stop processing
+                            }
+
+                            api.logging().logToOutput("[Copy Action] Calling copyImageToClipboard...");
+                            copyImageToClipboard(finalImage); // Use existing utility method
+                            api.logging().logToOutput("[Copy Action] copyImageToClipboard finished.");
+
+                            // Give feedback and close
+                            JOptionPane.showMessageDialog(editor, "Annotated image copied to clipboard.", "Copied", JOptionPane.INFORMATION_MESSAGE);
+                            editor.dispose(); // Close editor after copy
+
+                        } catch (Exception ex) {
+                            api.logging().logToError("[Copy Action] Error rendering or copying annotated image: " + ex.toString(), ex);
+                            JOptionPane.showMessageDialog(editor, "Error copying image:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        } finally {
+                            api.logging().logToOutput("[Copy Action] Action finished.");
+                        }
+                    }
+                };
+
+                // Save Action
+                Action saveAction = new AbstractAction("Save (Ctrl+S)") {
+                    @Override
+                    public void actionPerformed(ActionEvent a) {
+                        api.logging().logToOutput("[Save Action] Action started via " + a.getActionCommand()); // Log source
+                        api.logging().logToOutput("[Save Action] Shapes count: " + shapes.size());
+                        api.logging().logToOutput("[Save Action] Original image size: " + snap.getWidth() + "x" + snap.getHeight());
+                        try {
+                            api.logging().logToOutput("[Save Action] Calling renderAnnotatedImage...");
+                            BufferedImage finalImage = renderAnnotatedImage(snap, shapes, cols, kinds, STROKE_WIDTH);
+                            api.logging().logToOutput("[Save Action] renderAnnotatedImage returned: "
+                                    + (finalImage != null ? finalImage.getWidth()+"x"+finalImage.getHeight() : "null"));
+
+                            if (finalImage == null) {
+                                api.logging().logToError("[Save Action] Error: Rendered image is null!");
+                                JOptionPane.showMessageDialog(editor, "Error saving image:\nRendered image was null.", "Render Error", JOptionPane.ERROR_MESSAGE);
+                                return; // Stop processing
+                            }
+
+                            JFileChooser fc = new JFileChooser();
+                            fc.setDialogTitle("Save Annotated Screenshot");
+                            fc.setSelectedFile(new File("annotated_screenshot.png"));
+                            // Use FileNameExtensionFilter (more standard)
+                            fc.setFileFilter(new FileNameExtensionFilter("PNG Images (*.png)", "png"));
+                            fc.setAcceptAllFileFilterUsed(false); // Only allow PNG
+
+                            api.logging().logToOutput("[Save Action] Showing save dialog...");
+                            int res = fc.showSaveDialog(editor);
+                            api.logging().logToOutput("[Save Action] Save dialog returned: " + (res == JFileChooser.APPROVE_OPTION ? "Approve" : "Cancel/Error"));
+
+                            if (res == JFileChooser.APPROVE_OPTION) {
+                                File f = fc.getSelectedFile();
+                                // Ensure .png extension
+                                if (!f.getName().toLowerCase().endsWith(".png")) {
+                                    f = new File(f.getParentFile(), f.getName() + ".png");
+                                }
+
+                                // Check for overwrite
+                                if (f.exists()) {
+                                    int overwriteRes = JOptionPane.showConfirmDialog(editor,
+                                        "File already exists:\n" + f.getName() + "\nOverwrite?",
+                                        "Confirm Overwrite", JOptionPane.YES_NO_OPTION);
+                                    if (overwriteRes != JOptionPane.YES_OPTION) {
+                                        api.logging().logToOutput("[Save Action] Save cancelled by user (overwrite denied).");
+                                        return; // Don't save or close
+                                    }
+                                }
+
+                                api.logging().logToOutput("[Save Action] Writing image to " + f.getAbsolutePath());
+                                boolean success = ImageIO.write(finalImage, "png", f);
+                                api.logging().logToOutput("[Save Action] Image writing finished. Success: " + success);
+
+                                if (success) {
+                                    JOptionPane.showMessageDialog(editor,
+                                            "Saved to:\n" + f.getAbsolutePath(), "Saved", JOptionPane.INFORMATION_MESSAGE);
+                                    editor.dispose(); // Close editor after successful save
+                                } else {
+                                    api.logging().logToError("[Save Action] ImageIO.write returned false.");
+                                    JOptionPane.showMessageDialog(editor, "Error saving image (write operation failed).\nCheck file permissions or disk space.", "Save Error", JOptionPane.ERROR_MESSAGE);
+                                }
+                            } else {
+                                api.logging().logToOutput("[Save Action] Save cancelled by user.");
+                            }
+                        } catch (IOException ex) {
+                            api.logging().logToError("[Save Action] IO Error saving annotated image: " + ex.toString(), ex);
+                            JOptionPane.showMessageDialog(editor, "Error saving image (I/O):\n" + ex.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
+                        } catch (Exception ex) {
+                            api.logging().logToError("[Save Action] General Error rendering or saving annotated image: " + ex.toString(), ex);
+                            JOptionPane.showMessageDialog(editor, "Error preparing/saving image:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        } finally {
+                            api.logging().logToOutput("[Save Action] Action finished.");
+                        }
+                    }
+                };
+
+                // --- Create Buttons using Actions ---
+                 JButton copyBtn = new JButton(copyAction);
+                 JButton saveBtn = new JButton(saveAction); // Use the Action
+
+                 addToolbarComponent.accept(copyBtn);
+                 addToolbarComponent.accept(saveBtn);
+
+
+                // --- Set up Key Bindings (Hotkeys) ---
+                JRootPane rootPane = editor.getRootPane();
+                InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+                ActionMap actionMap = rootPane.getActionMap();
+
+                // Ctrl+C (or Cmd+C on Mac)
+                // Use getMenuShortcutKeyMaskEx() for modern systems
+                KeyStroke copyKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_C, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
+                inputMap.put(copyKeyStroke, "copyActionMapKey"); // Unique key for the map
+                actionMap.put("copyActionMapKey", copyAction); // Map key to the Action object
+
+                // Ctrl+S (or Cmd+S on Mac)
+                KeyStroke saveKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_S, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
+                inputMap.put(saveKeyStroke, "saveActionMapKey");
+                actionMap.put("saveActionMapKey", saveAction);
+
+                // Ctrl+Z (or Cmd+Z on Mac) for Undo
+                KeyStroke undoKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx());
+                inputMap.put(undoKeyStroke, "undoActionMapKey");
+                actionMap.put("undoActionMapKey", undoAction); // Map to the undo Action
 
 
                 // --- Finalize Editor ---
-                editor.pack();
+                editor.pack(); // Pack first to calculate preferred sizes
+                editor.setMinimumSize(new Dimension(500, 400)); // Set a reasonable minimum size AFTER packing
+
+                // <<< NEW: Maximize the window >>>
+                editor.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                // Center on screen (might not be strictly needed after maximize, but doesn't hurt)
                 editor.setLocationRelativeTo(null);
 
-                 // Limit initial size and re-center
-                 Dimension currentSize = editor.getSize();
-                 int maxInitialWidth = Toolkit.getDefaultToolkit().getScreenSize().width - 100;
-                 int maxInitialHeight = Toolkit.getDefaultToolkit().getScreenSize().height - 100;
-                 editor.setSize(Math.min(currentSize.width, maxInitialWidth),
-                                Math.min(currentSize.height, maxInitialHeight));
-                 editor.setLocationRelativeTo(null);
-
-                editor.setMinimumSize(new Dimension(350, 300)); // Set minimum size
+                // Set initial cursor and tool selection
                 drawCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+                rBtn.setSelected(true); // Ensure Rect button is visually selected initially
+
+                // Make it visible
                 editor.setVisible(true);
-                api.logging().logToOutput("Annotation editor is now visible (with scrolling).");
+                api.logging().logToOutput("Annotation editor is now visible (maximized, with scrolling and hotkeys).");
+
+                // Request focus for the drawing canvas so it receives mouse events immediately
+                drawCanvas.requestFocusInWindow();
 
             } catch (Exception ex) {
                  api.logging().logToError("Failed to launch annotation editor: " + ex.toString(), ex);
+                 // Show error to user as well
+                 JOptionPane.showMessageDialog(null, // Parent might be null if editor failed early
+                     "Could not launch the annotation editor:\n" + ex.getMessage(),
+                     "Editor Launch Error", JOptionPane.ERROR_MESSAGE);
             }
         }); // End SwingUtilities.invokeLater
     }
-    // --- End of the function ---
+    // --- End of the updated function ---
 
 
-    // --- Helper Methods (unchanged) ---
+    // --- Helper Methods (unchanged from previous version, ensure they are correct) ---
     private Color getColorForMode(Color baseColor, String mode, int highlightAlpha) {
         if ("HIGHLIGHT".equals(mode)) {
-            return new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), highlightAlpha);
+            // Ensure alpha is within valid range 0-255
+            int alpha = Math.max(0, Math.min(highlightAlpha, 255));
+            return new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), alpha);
         } else {
-            return baseColor;
+            return baseColor; // Return opaque color for line/rect
         }
     }
 
     private Color getContrastColor(Color color) {
-        double luminance = (0.299 * color.getRed() + 0.587 * color.getGreen() + 0.114 * color.getBlue()) / 255;
+        // Simple heuristic based on perceived luminance
+        double luminance = (0.299 * color.getRed() + 0.587 * color.getGreen() + 0.114 * color.getBlue()) / 255.0;
+        // Adjust threshold slightly? 0.5 is common.
         return luminance > 0.5 ? Color.BLACK : Color.WHITE;
     }
 
+    // Ensure this render method handles the colors (with alpha for highlights) correctly
     private BufferedImage renderAnnotatedImage(BufferedImage original, List<Shape> shapes, List<Color> cols, List<String> kinds, float strokeWidth) {
+         if (original == null) {
+             api.logging().logToError("renderAnnotatedImage: Original image is null.");
+             return null;
+         }
          api.logging().logToOutput("Rendering final annotated image...");
-         // Use ARGB for transparency support (important for highlights)
-         BufferedImage out = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_ARGB);
+         int w = original.getWidth();
+         int h = original.getHeight();
+         if (w <= 0 || h <= 0) {
+              api.logging().logToError("renderAnnotatedImage: Original image has invalid dimensions (" + w + "x" + h + ")");
+              return null;
+         }
+
+         // Create output image with Alpha channel to support transparent highlights
+         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = out.createGraphics();
-        g2.drawImage(original, 0, 0, null); // Draw original image first
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setStroke(new BasicStroke(strokeWidth));
-        for (int i = 0; i < shapes.size(); i++) {
-            g2.setColor(cols.get(i)); // Color already includes alpha for highlights
-            Shape s = shapes.get(i); String k = kinds.get(i);
-            if ("HIGHLIGHT".equals(k)) {
-                g2.fill(s); // Fill for highlight
-            } else {
-                g2.draw(s); // Draw outline for rect/line
+        try {
+            // 1. Draw the original image as the base layer
+            g2.drawImage(original, 0, 0, null);
+
+            // 2. Prepare for drawing annotations
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)); // Use round caps/joins
+
+            // 3. Draw each shape
+            for (int i = 0; i < shapes.size(); i++) {
+                Shape s = shapes.get(i);
+                Color c = cols.get(i); // This color already has alpha set if it's a highlight
+                String k = kinds.get(i);
+
+                if (s == null || c == null || k == null) {
+                    api.logging().logToOutput("Skipping null shape/color/kind at index " + i);
+                    continue;
+                }
+
+                g2.setColor(c); // Set the color (includes alpha)
+
+                if ("HIGHLIGHT".equals(k)) {
+                    g2.fill(s); // Fill shape for highlights (uses alpha from color)
+                } else { // RECT, LINE
+                    g2.draw(s); // Draw outline for others
+                }
             }
+            api.logging().logToOutput("Finished rendering annotations.");
+        } catch (Exception e) {
+             api.logging().logToError("Error during rendering annotations: " + e.toString(), e);
+             // Depending on severity, might return null or the partially rendered image
+             // For safety, dispose graphics and return null or the image *before* the error
+        } finally {
+            g2.dispose(); // VERY IMPORTANT: Release graphics resources
         }
-        g2.dispose();
-        api.logging().logToOutput("Finished rendering final annotated image.");
         return out;
     }
 

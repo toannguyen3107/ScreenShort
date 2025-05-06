@@ -38,10 +38,6 @@ public class GUI implements ContextMenuItemsProvider {
     private JMenu createScreenshotMenu(ContextMenuEvent event) {
         JMenu screenshotMenu = new JMenu("Screenshot");
 
-        // Add the annotation item first
-        // screenshotMenu.add(createMenuItem("Annotate Region", menuHandler::handleAnnotateScreenshot));
-        // screenshotMenu.addSeparator(); // Optional separator
-
         // Renamed slightly for clarity, now lead to annotation editor
         screenshotMenu.add(createMenuItem("Annotate Component (Normal)", menuHandler::handleNormalScreenshot));
         screenshotMenu.add(createMenuItem("Annotate Full Req/Res (Full)", menuHandler::handleFullScreenshot));

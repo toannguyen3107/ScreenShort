@@ -22,12 +22,6 @@ public class MenuActionHandler {
         screenshotUtils.handleFullScreenshot();
     }
 
-    // --- REMOVED handleEditedScreenshot and handleOriginalScreenshot ---
-
-    // Calls the method to show the selection overlay and then the annotator
-    public void handleAnnotateScreenshot() {
-        screenshotUtils.handleAnnotateScreenshot();
-    }
 
     // --- Other utility methods (unchanged) ---
     public void handleCopyToExcel(HttpRequestResponse requestResponse) {
