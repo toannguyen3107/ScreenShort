@@ -38,8 +38,8 @@ public class GUI implements ContextMenuItemsProvider {
         JMenu screenshotMenu = new JMenu("Screenshot");
 
         // Renamed slightly for clarity, now lead to annotation editor
-        screenshotMenu.add(createMenuItem("Annotate Component (Normal)", menuHandler::handleNormalScreenshot));
-        screenshotMenu.add(createMenuItem("Annotate Full Req/Res (Full)", menuHandler::handleFullScreenshot));
+        screenshotMenu.add(createMenuItem("Annotate Component (Normal) - Ctrl+Shift+S", menuHandler::handleNormalScreenshot));
+        screenshotMenu.add(createMenuItem("Annotate Full Req/Res (Full)- Ctrl+Shift+Space", menuHandler::handleFullScreenshot));
 
         // --- REMOVED Original/Edited items and conditional logic ---
 
