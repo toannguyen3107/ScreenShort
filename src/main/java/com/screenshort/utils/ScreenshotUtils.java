@@ -236,6 +236,7 @@ public class ScreenshotUtils {
     // ... (handleNormalScreenshot, handleFullScreenshot - assumed here and correct) ...
      public void handleNormalScreenshot() {
         api.logging().logToOutput("Executing Normal Screenshot (to Annotator)...");
+        clearImages(); 
         try {
             Frame suiteFrame = api.userInterface().swingUtils().suiteFrame();
             if (suiteFrame == null) {
@@ -294,9 +295,9 @@ public class ScreenshotUtils {
             // This might need adjustment based on Burp's actual UI structure if the name isn't reliable
             // A more robust approach might involve finding the main tabbed pane and navigating down.
             // For now, let's assume finding by name works often enough.
-            Component targetSplitPane = findComponentByNameRecursively(suiteFrame, "rrvSplitViewerSplitPane"); // Helper needed
+            Component targetComponent = findComponentUnderMouse("rrvSplitViewerSplitPane", suiteFrame);
 
-             if (targetSplitPane == null) {
+             if (targetComponent == null) {
                  api.logging().logToError("Full Screenshot: Could not find 'rrvSplitViewerSplitPane' component in the frame.");
                  // Attempt fallback if needed, e.g., checking active tab
                  return;
@@ -304,8 +305,8 @@ public class ScreenshotUtils {
              api.logging().logToOutput("Full Screenshot: Found target split pane.");
 
             // Find Request/Response panes within the located split pane
-            Component reqComp = findComponentByNameRecursively(targetSplitPane, "rrvRequestsPane");
-            Component resComp = findComponentByNameRecursively(targetSplitPane, "rrvResponsePane");
+            Component reqComp = findComponentByNameRecursively(targetComponent, "rrvRequestsPane");
+            Component resComp = findComponentByNameRecursively(targetComponent, "rrvResponsePane");
 
              if (reqComp == null || resComp == null) {
                  api.logging().logToError("Full Screenshot: Could not find Request or Response panes within the target split pane."); return;
@@ -633,7 +634,7 @@ public class ScreenshotUtils {
                             api.logging().logToOutput("[Copy Action] copyImageToClipboard finished.");
 
                             // Give feedback and close
-                            JOptionPane.showMessageDialog(editor, "Annotated image copied to clipboard.", "Copied", JOptionPane.INFORMATION_MESSAGE);
+                            // JOptionPane.showMessageDialog(editor, "Annotated image copied to clipboard.", "Copied", JOptionPane.INFORMATION_MESSAGE);
                             editor.dispose(); // Close editor after copy
 
                         } catch (Exception ex) {

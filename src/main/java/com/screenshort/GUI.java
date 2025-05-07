@@ -8,7 +8,6 @@ import java.util.Optional;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.core.ToolType; // Keep ToolType import if used elsewhere, but not needed for screenshot menu anymore
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
