@@ -2,6 +2,7 @@ package com.screenshort;
 
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
+import com.screenshort.utils.CustomMessageEditorHotKey;
 
 public class ScreenShort implements BurpExtension{
     @Override
@@ -13,5 +14,7 @@ public class ScreenShort implements BurpExtension{
 
         api.userInterface().registerContextMenuItemsProvider(new GUI(api));
 
+        
+        CustomMessageEditorHotKey.registerHotKey(api);
     }
 }
