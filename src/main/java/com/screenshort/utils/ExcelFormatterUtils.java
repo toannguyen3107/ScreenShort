@@ -112,7 +112,7 @@ public class ExcelFormatterUtils {
                 .collect(Collectors.joining("\n"));
         String firstLineOfReqHead = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
         String endString = "\n" + requestResponse.request().body().toString();
-        headersToString = firstLineOfReqHead + headersToString + endString;
+        headersToString = firstLineOfReqHead + headersToString +"\n"+ endString;
         data.append(excelFormat(headersToString)).append(SEPARATOR);
         // ------------- response ------------------
         List<HttpHeader> headersResponse = requestResponse.response().headers();
@@ -235,7 +235,7 @@ public class ExcelFormatterUtils {
         headersResponseToString = firstLineRes + "\n" + headersResponseToString + "\n" + "REDACTED";
         data.append(excelFormat(headersResponseToString)).append(SEPARATOR);
         ByteArray requestBodyByte = requestResponse.request().body();
-        String requestBody = new String(filterValidASCII(requestBodyByte.getBytes()), StandardCharsets.UTF_8);
+        String requestBody = "\n" + new String(filterValidASCII(requestBodyByte.getBytes()), StandardCharsets.UTF_8);
         data.append(excelFormat(requestBody)).append(SEPARATOR);
         String responseBody = "REDACTED";
         data.append(excelFormat(responseBody)).append(SEPARATOR);
