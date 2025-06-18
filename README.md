@@ -1,53 +1,62 @@
 # ScreenShort
 
-This is a simple extension for Burp Suite Community/Professional developed using the Burp Extension API (Montoya). This extension adds options to the context menu to help you quickly manipulate and extract data from HTTP Request/Response.
+ScreenShort is a Java application designed to capture screenshots and provide utility functions for data processing, including Excel formatting and JSON generation.
 
 ## Features
 
-This extension currently provides the following functionalities via the context menu (right-click):
+*   **Screenshot Capture**: Capture screenshots of your screen.
+*   **Graphical User Interface (GUI)**: Interact with the application through a user-friendly interface.
+*   **Excel Formatting Utilities**: Tools for formatting data into Excel files.
+*   **JSON Generation Utilities**: Tools for generating JSON data.
 
-### "Screenshot" Menu
+## Project Structure
 
-*   **Normal**: Capture the current Burp Suite window.
-*   **Full**: Capture the entire Burp Suite work area.
-*   **Full - Edited Request (Proxy Tool)**: Capture the entire Editor window for the modified request. (Currently not in use)
-*   **Full - Original Request (Proxy Tool)**: Capture the entire Editor window for the original request. (Currently not in use)
+The project is organized into the following main packages:
 
-### "PCopy" Menu (Only visible when HTTP Request/Response is selected)
+*   `com.screenshort`: Contains the main application class (`ScreenShort.java`) and the GUI implementation (`GUI.java`).
+*   `com.screenshort.utils`: Contains various utility classes, including:
+    *   `ExcelFormatterUtils.java`: Handles Excel formatting logic.
+    *   `GenDataToJson.java`: Handles JSON data generation.
+    *   `MenuActionHandler.java`: Likely handles actions triggered by GUI menu items.
+    *   `ScreenshotUtils.java`: Contains the core screenshot capture logic.
+    *   `CustomMessageEditorHotKey.java`: (Purpose inferred from name, likely related to custom key bindings).
 
-These options help copy request/response information to the clipboard in a format suitable for pasting into spreadsheets like Excel or row/column data processing tools.
+## Building and Running
 
-*   **PCopy has body**: Copy request/response information including both request and response bodies.
-*   **PCopy no body**: Copy request/response information but exclude the response body to save space or when the request body contains image data, binary data, etc.
+This project uses Maven.
 
-### "GenData" Menu (Only visible when HTTP Request/Response is selected)
-
-*   **Copy as JSON**: Format detailed information of the selected HTTP Request (Headers, Method, URL Query Parameters, Body, etc.) into a specific JSON structure and copy it to the clipboard. This JSON structure can be used for purposes such as generating test cases, formatting data for automated processing, etc.
-
-## Installation
-
-1.  Ensure you have a compatible **Java Development Kit (JDK)** installed (check Burp Suite requirements).
-2.  Clone this repository to your machine:
+1.  Ensure you have a compatible **Java Development Kit (JDK)** installed.
+2.  Navigate to the project root directory in your terminal.
+3.  Build the project using Maven:
     ```bash
-    git clone https://github.com/toannguyen3107/ScreenShort.git
+    mvn clean package
     ```
-4. Build into a jar file (`mvn clean package`).
-5. Add the built file to Burp Suite (the file is generated in the `target` directory).
+4.  Run the application. The exact command may vary depending on how the main class is configured in the `pom.xml`, but it will likely be similar to:
+    ```bash
+    java -jar target/ScreenShort-1.0-SNAPSHOT.jar
+    ```
+    (Replace `ScreenShort-1.0-SNAPSHOT.jar` with the actual generated jar file name if different).
 
-## Usage
+## Testing
 
-After the extension is successfully loaded, simply right-click on an HTTP Request or Response in tabs like Proxy History, Repeater, Intruder, etc., to see the new context menu options: "Screenshot", "PCopy", and "GenData".
+Unit tests are located in `src/test/java/com/screenshot/`.
 
-*   Select options in "Screenshot" to capture Burp Suite screen shots.
-*   Select options in "PCopy" to copy request/response data in a row/column format.
-*   Select "GenData" -> "Copy as JSON" to get the request information in the structured JSON format.
+*   `AppTest.java`: Contains basic unit tests for the application.
 
-## Project Structure (Optional)
+To run tests using Maven:
 
-Consists of 2 packages: `com.screenshort` and `com.screenshort.utils`.
-1. `GUI.java`: This file overrides `provideMenuItems` according to the Montoya API to create the menus.
-2. `com.screenshort.utils/MenuActionHandler.java`: This file links to the functions in `utils/*`. `GUI` calls functions in this handler, and the handler calls the corresponding functions in the utility classes.
+```bash
+mvn test
+```
+
+## Contributing
+
+(Add information on how to contribute if applicable)
+
+## License
+
+(Add license information if applicable)
 
 ## Author
 
-`@toannguyen3107`, `@nquangit` (contributor)
+(Add author information)
