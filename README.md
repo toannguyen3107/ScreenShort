@@ -51,12 +51,10 @@ mvn test
 
 ## Contributing
 
-(Add information on how to contribute if applicable)
+@quangit
 
-## License
 
-(Add license information if applicable)
 
 ## Author
 
-(Add author information)
+@t0ann9uy3n (Toan Nguyen
