@@ -51,10 +51,10 @@ mvn test
 
 ## Contributing
 
-@quangit
+@quangit, @h4x0rl33tx
 
 
 
 ## Author
 
-@t0ann9uy3n (Toan Nguyen
+@t0ann9uy3n (Toan Nguyen)
