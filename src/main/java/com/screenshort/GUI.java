@@ -14,11 +14,9 @@ import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
 import java.util.function.Consumer;
 
 public class GUI implements ContextMenuItemsProvider {
-    private final MontoyaApi api;
     private final MenuActionHandler menuHandler;
 
     public GUI(MontoyaApi api) {
-        this.api = api;
         this.menuHandler = new MenuActionHandler(api);
     }
 

@@ -10,11 +10,10 @@ public class ScreenShort implements BurpExtension{
         api.extension().setName("ScreenShort");
 
         api.logging().logToOutput("ScreenShort extension initialized");
-        api.logging().logToOutput("Copyright @toancse - 1.6");
-        api.logging().logToOutput("Update: 2025-06-11 - PCopy added newline in Request!");
+        api.logging().logToOutput("Copyright @toancse - 1.6.03");
+        api.logging().logToOutput("Update: 2025-07-03 - Pcopy update beautiful request, response!");
 
         api.userInterface().registerContextMenuItemsProvider(new GUI(api));
-
         
         CustomMessageEditorHotKey.registerHotKey(api);
     }
