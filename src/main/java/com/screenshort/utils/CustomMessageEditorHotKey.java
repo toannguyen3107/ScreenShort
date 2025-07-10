@@ -4,7 +4,10 @@
  */
 package com.screenshort.utils;
 
+import java.util.Optional;
+
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.hotkey.HotKeyContext;
 import burp.api.montoya.ui.hotkey.HotKeyEvent;
 import burp.api.montoya.ui.hotkey.HotKeyHandler;
@@ -34,5 +37,14 @@ public class CustomMessageEditorHotKey {
                 screenshotUtils.handleFullScreenshot();
             }
         });
+        // api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Shift+X", new HotKeyHandler() {
+        //     @Override
+        //     public void handle(HotKeyEvent evt) {
+        //         Optional<HttpRequestResponse> optionalRequestResponse = evt.messageEditorRequestResponse().map(editorReqRes -> editorReqRes.requestResponse())
+        //         .or(() -> evt.selectedRequestResponses().stream().findFirst());
+        //         String data = ExcelFormatterUtils.formatRequestResponseForExcel(requestResponse);
+        //         ExcelFormatterUtils.copyToClipboard(data);
+        //     }
+        // });
     }
 }
