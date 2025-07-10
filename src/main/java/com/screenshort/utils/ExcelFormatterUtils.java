@@ -6,14 +6,14 @@ import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.params.ParsedHttpParameter;
-import burp.api.montoya.core.ByteArray;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.io.ByteArrayOutputStream;
+import org.json.JSONObject;
+import org.json.JSONException;
 
 public class ExcelFormatterUtils {
     private static final String SEPARATOR = "\t";
@@ -32,9 +32,6 @@ public class ExcelFormatterUtils {
         }
         StringBuilder formattedData = new StringBuilder();
         for (char c : data.toCharArray()) {
-            if (c < 0x20 && c != '\t' && c != '\n' && c != '\r') {
-                continue;
-            }
             switch (c) {
                 case '\t':
                     formattedData.append("\\t");
@@ -43,13 +40,13 @@ public class ExcelFormatterUtils {
                     formattedData.append("\"\"");
                     break;
                 case '<':
-                    formattedData.append("&lt;");
+                    formattedData.append("<");
                     break;
                 case '>':
-                    formattedData.append("&gt;");
+                    formattedData.append(">");
                     break;
                 case '&':
-                    formattedData.append("&amp;");
+                    formattedData.append("&");
                     break;
                 case '\'':
                     formattedData.append("&#39;");
@@ -59,28 +56,25 @@ public class ExcelFormatterUtils {
                     break;
             }
         }
-        if (formattedData.length() > 35000) {
-            formattedData.setLength(35000);
-        }
         return "\"" + formattedData.toString() + "\"";
     }
 
     /**
-     * Lọc bỏ các ký tự điều khiển và non-ASCII không hợp lệ khỏi mảng byte.
-     * (Lấy từ phương thức static filterValidASCII trong ExcelFormatter cũ)
-     * Cải thiện việc sử dụng ByteArrayOutputStream thay vì ArrayList<Byte>.
+     * Pretty-prints a JSON string. If the input is not valid JSON, it returns the original string.
      */
-    public static byte[] filterValidASCII(byte[] data) {
-        if (data == null) {
-            return new byte[0];
+    private static String prettyPrintJson(String jsonString) {
+        if (jsonString == null || jsonString.trim().isEmpty()) {
+            return "";
         }
-        ByteArrayOutputStream tempArray = new ByteArrayOutputStream();
-        for (byte b : data) {
-            if ((b >= 0x20 && b <= 0x7E) || b == 0x0A || b == 0x0D) {
-                tempArray.write(b);
-            }
+        try {
+            // Attempt to parse as JSONObject
+            JSONObject jsonObject = new JSONObject(jsonString);
+            return jsonObject.toString(2); // Indent with 2 spaces
+        } catch (JSONException e) {
+            // Not a valid JSON object, try as array if needed, or return original
+            // For simplicity, we'll just return the original string if it's not a JSON object
+            return jsonString;
         }
-        return tempArray.toByteArray();
     }
 
     /**
@@ -111,7 +105,8 @@ public class ExcelFormatterUtils {
                 .map(HttpHeader::toString)
                 .collect(Collectors.joining("\n"));
         String firstLineOfReqHead = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
-        String endString = "\n" + requestResponse.request().body().toString();
+        String requestBodyString = new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8);
+        String endString = "\n" + prettyPrintJson(requestBodyString);
         headersToString = firstLineOfReqHead + headersToString +"\n"+ endString;
         data.append(excelFormat(headersToString)).append(SEPARATOR);
         // ------------- response ------------------
@@ -120,14 +115,14 @@ public class ExcelFormatterUtils {
                 .map(HttpHeader::toString)
                 .collect(Collectors.joining("\n"));
         String firstLineRes = requestResponse.response().toString().split("\n", 2)[0];
-        String endString2 = "\n" + requestResponse.response().bodyToString();
+        String responseBodyString = new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8);
+        String endString2 = "\n" + prettyPrintJson(responseBodyString);
         headersResponseToString = firstLineRes + "\n" + headersResponseToString + "\n" + endString2;
         data.append(excelFormat(headersResponseToString)).append(SEPARATOR);
         // ------------- body ------------------
-        ByteArray requestBodyByte = requestResponse.request().body();
-        String requestBody = new String(filterValidASCII(requestBodyByte.getBytes()), StandardCharsets.UTF_8);
+        String requestBody = prettyPrintJson(new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8));
         data.append(excelFormat(requestBody)).append(SEPARATOR);
-        String responseBody = requestResponse.response().bodyToString();
+        String responseBody = prettyPrintJson(new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8));
         data.append(excelFormat(responseBody)).append(SEPARATOR);
         // ------------- raw summary ------------------
         StringBuilder rawSummary = new StringBuilder();
@@ -185,8 +180,7 @@ public class ExcelFormatterUtils {
         rawSummary.append("\n");
         rawSummary.append("COOKIES\n");
         // Đánh số và nối tên Response Cookies
-        List<Cookie> responseCookies = requestResponse.response().cookies(); // Dùng cookies() thay vì
-                                                                             // parameters(COOKIE) cho response
+        List<Cookie> responseCookies = requestResponse.response().cookies();
         for (int i = 0; i < responseCookies.size(); i++) {
             rawSummary.append(i + 1).append(". ").append(responseCookies.get(i).name()).append(" | ");
         }
@@ -196,10 +190,6 @@ public class ExcelFormatterUtils {
         rawSummary.append("\n\n");
         rawSummary.append("______ RAW ______\n");
         data.append(excelFormat(rawSummary.toString()));
-        // ------------- body ------------------
-        ByteArray requestBodyByte1 = requestResponse.request().body();
-        String requestBody1 = new String(filterValidASCII(requestBodyByte1.getBytes()), StandardCharsets.UTF_8);
-        data.append(excelFormat(requestBody1));
         return data.toString();
     }
 
@@ -225,19 +215,18 @@ public class ExcelFormatterUtils {
                 .map(HttpHeader::toString)
                 .collect(Collectors.joining("\n"));
         String firstLineOfReqHead = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
-        headersToString = firstLineOfReqHead + headersToString;
+        headersToString = firstLineOfReqHead + headersToString + "\n\nREDACTED";
         data.append(excelFormat(headersToString)).append(SEPARATOR);
         List<HttpHeader> headersResponse = requestResponse.response().headers();
         String headersResponseToString = headersResponse.stream()
                 .map(HttpHeader::toString)
                 .collect(Collectors.joining("\n"));
         String firstLineRes = requestResponse.response().toString().split("\n", 2)[0];
-        headersResponseToString = firstLineRes + "\n" + headersResponseToString + "\n" + "REDACTED";
-        data.append(excelFormat(headersResponseToString)).append(SEPARATOR);
-        ByteArray requestBodyByte = requestResponse.request().body();
-        String requestBody = "\n" + new String(filterValidASCII(requestBodyByte.getBytes()), StandardCharsets.UTF_8);
+        headersResponseToString = firstLineRes + "\n" + headersResponseToString;
+        data.append(excelFormat(headersResponseToString + "\n\nREDACTED")).append(SEPARATOR);
+        String requestBody = "REDACTED";
         data.append(excelFormat(requestBody)).append(SEPARATOR);
-        String responseBody = "REDACTED";
+        String responseBody = "REDACTED"; // Giữ nguyên REDACTED vì đây là hàm NoBody
         data.append(excelFormat(responseBody)).append(SEPARATOR);
         // ------------- raw summary ------------------
         StringBuilder rawSummary = new StringBuilder();
@@ -264,21 +253,21 @@ public class ExcelFormatterUtils {
         rawSummary.append("\n");
         rawSummary.append("HEADERS\n");
         // Đánh số và nối tên Request Headers
-        List<HttpHeader> requestHeaders = requestResponse.request().headers();
-        for (int i = 0; i < requestHeaders.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(requestHeaders.get(i).name()).append(" | ");
-        }
-        if (!requestHeaders.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có headers
-        }
-        rawSummary.append("\n");
-        rawSummary.append("Cookie\n");
-        // Đánh số và nối tên Request Cookies
-        List<ParsedHttpParameter> requestCookies = requestResponse.request().parameters(HttpParameterType.COOKIE);
+        List<HttpHeader> requestCookies = requestResponse.request().headers();
         for (int i = 0; i < requestCookies.size(); i++) {
             rawSummary.append(i + 1).append(". ").append(requestCookies.get(i).name()).append(" | ");
         }
         if (!requestCookies.isEmpty()) {
+            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
+        }
+        rawSummary.append("\n");
+        rawSummary.append("Cookie\n");
+        // Đánh số và nối tên Request Cookies
+        List<ParsedHttpParameter> requestCookies1 = requestResponse.request().parameters(HttpParameterType.COOKIE);
+        for (int i = 0; i < requestCookies1.size(); i++) {
+            rawSummary.append(i + 1).append(". ").append(requestCookies1.get(i).name()).append(" | ");
+        }
+        if (!requestCookies1.isEmpty()) {
             rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
         }
         rawSummary.append("\n\n");
@@ -295,12 +284,11 @@ public class ExcelFormatterUtils {
         rawSummary.append("\n");
         rawSummary.append("COOKIES\n");
         // Đánh số và nối tên Response Cookies
-        List<Cookie> responseCookies = requestResponse.response().cookies(); // Dùng cookies() thay vì
-                                                                             // parameters(COOKIE) cho response
-        for (int i = 0; i < responseCookies.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(responseCookies.get(i).name()).append(" | ");
+        List<Cookie> responseCookies1 = requestResponse.response().cookies();
+        for (int i = 0; i < responseCookies1.size(); i++) {
+            rawSummary.append(i + 1).append(". ").append(responseCookies1.get(i).name()).append(" | ");
         }
-        if (!responseCookies.isEmpty()) {
+        if (!responseCookies1.isEmpty()) {
             rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
         }
         rawSummary.append("\n\n");
