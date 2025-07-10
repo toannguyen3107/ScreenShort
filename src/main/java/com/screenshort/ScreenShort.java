@@ -15,6 +15,6 @@ public class ScreenShort implements BurpExtension{
 
         api.userInterface().registerContextMenuItemsProvider(new GUI(api));
         
-        CustomMessageEditorHotKey.registerHotKey(api);
+        new CustomMessageEditorHotKey(api);
     }
 }

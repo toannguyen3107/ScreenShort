@@ -17,12 +17,15 @@ import burp.api.montoya.ui.hotkey.HotKeyHandler;
  * @author ASUS
  */
 public class CustomMessageEditorHotKey {
+    private final MenuActionHandler menuHandler;
 
-    public static void registerHotKey(MontoyaApi api) {
-        CustomMessageEditorHotKey.registerScreenShortHotKey(api);
+    public CustomMessageEditorHotKey(MontoyaApi api) {
+        this.menuHandler = new MenuActionHandler(api);
+        this.registerScreenShortHotKey(api);
     }
 
-    public static void registerScreenShortHotKey(MontoyaApi api) {
+
+    public void registerScreenShortHotKey(MontoyaApi api) {
         ScreenshotUtils screenshotUtils = new ScreenshotUtils(api);
         api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Shift+S", new HotKeyHandler() {
             @Override
@@ -37,14 +40,25 @@ public class CustomMessageEditorHotKey {
                 screenshotUtils.handleFullScreenshot();
             }
         });
-        // api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Shift+X", new HotKeyHandler() {
-        //     @Override
-        //     public void handle(HotKeyEvent evt) {
-        //         Optional<HttpRequestResponse> optionalRequestResponse = evt.messageEditorRequestResponse().map(editorReqRes -> editorReqRes.requestResponse())
-        //         .or(() -> evt.selectedRequestResponses().stream().findFirst());
-        //         String data = ExcelFormatterUtils.formatRequestResponseForExcel(requestResponse);
-        //         ExcelFormatterUtils.copyToClipboard(data);
-        //     }
-        // });
+        api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Alt+Space", new HotKeyHandler() {
+            @Override
+            public void handle(HotKeyEvent evt) {
+                Optional<HttpRequestResponse> requestResponse = evt.messageEditorRequestResponse()
+                    .map(m -> m.requestResponse());
+                if (requestResponse.isPresent()) {
+                    menuHandler.handleCopyToExcel(requestResponse.get());
+                }
+            }
+        });
+        api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Alt+C", new HotKeyHandler() {
+            @Override
+            public void handle(HotKeyEvent evt) {
+                Optional<HttpRequestResponse> requestResponse = evt.messageEditorRequestResponse()
+                    .map(m -> m.requestResponse());
+                if (requestResponse.isPresent()) {
+                    menuHandler.handleCopyToExcelNoBody(requestResponse.get());
+                }
+            }
+        });
     }
 }

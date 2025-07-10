@@ -46,8 +46,8 @@ public class GUI implements ContextMenuItemsProvider {
 
     private JMenu createPCopyMenu(HttpRequestResponse requestResponse) {
         JMenu pCopyMenu = new JMenu("PCopy");
-        pCopyMenu.add(createMenuItemWithReqRes("PCopy has body", menuHandler::handleCopyToExcel, requestResponse));
-        pCopyMenu.add(createMenuItemWithReqRes("PCopy no body", menuHandler::handleCopyToExcelNoBody, requestResponse));
+        pCopyMenu.add(createMenuItemWithReqRes("PCopy has body in response - Ctrl+Alt+Space", menuHandler::handleCopyToExcel, requestResponse));
+        pCopyMenu.add(createMenuItemWithReqRes("PCopy no body in response - Ctrl+Alt+Space", menuHandler::handleCopyToExcelNoBody, requestResponse));
         return pCopyMenu;
     }
 

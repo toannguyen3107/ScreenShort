@@ -1,7 +1,8 @@
 # ScreenShort
 
 ScreenShort is a Java application designed to capture screenshots and provide utility functions for data processing, including Excel formatting and JSON generation.
-
+## versions:
+*   **1.6.4**: Update refactor code in CustomMessageEditorHotKey.java and add HotKey for PCopy
 ## Features
 
 *   **Screenshot Capture**: Capture screenshots of your screen.
