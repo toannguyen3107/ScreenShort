@@ -4,6 +4,7 @@
  */
 package com.screenshort.utils;
 
+import java.util.List;
 import java.util.Optional;
 
 import burp.api.montoya.MontoyaApi;
@@ -57,6 +58,17 @@ public class CustomMessageEditorHotKey {
                     .map(m -> m.requestResponse());
                 if (requestResponse.isPresent()) {
                     menuHandler.handleCopyToExcelNoBody(requestResponse.get());
+                }
+            }
+        });
+
+        api.userInterface().registerHotKeyHandler(HotKeyContext.HTTP_MESSAGE_EDITOR, "Ctrl+Alt+V", new HotKeyHandler() {
+            @Override
+            public void handle(HotKeyEvent evt) {
+                Optional<HttpRequestResponse> requestResponse = evt.messageEditorRequestResponse()
+                    .map(m -> m.requestResponse());
+                if (requestResponse.isPresent()) {
+                    menuHandler.handleGenDataAction(requestResponse.get());
                 }
             }
         });

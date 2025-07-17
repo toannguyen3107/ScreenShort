@@ -11,7 +11,16 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.Toolkit;
 import java.util.List;
 import java.util.UUID;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.prefs.Preferences;
 public class GenDataToJson {
+    private static final String PREFS_KEY_DEFAULT_PATH = "default_export_path";
+    private static final Preferences prefs = Preferences.userNodeForPackage(GenDataToJson.class);
+    
     public static String formatRequestResponseToJson(HttpRequestResponse requestResponse) {
         if (requestResponse == null) {
             return "{}";
@@ -72,6 +81,7 @@ public class GenDataToJson {
         jsonBuilder.append("}");
         return jsonBuilder.toString();
     }
+
     private static String escapeJsonString(String value) {
         if (value == null) {
             return null;
@@ -116,4 +126,119 @@ public class GenDataToJson {
         Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
         clipboard.setContents(stringSelection, null);
     }
+    
+    /**
+     * Create a copy of the HttpRequestResponse in temporary file.
+     * This method is used to save the HttpRequestResponse object to a temporary file, 
+     * so that it is no longer held in memory. Extensions can use this method to 
+     * convert HttpRequest objects into a form suitable for long-term usage.
+     * 
+     * @param requestResponse The HttpRequestResponse to save
+     * @return A new ByteArray instance stored in temporary file, or null if operation failed
+     */
+    public static ByteArray copyToTempFile(HttpRequestResponse requestResponse) {
+        if (requestResponse == null) {
+            JOptionPane.showMessageDialog(null, "No request/response data to save.", "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        
+        // Show file chooser dialog
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save HttpRequestResponse to file");
+        fileChooser.setSelectedFile(new File("request_response_" + System.currentTimeMillis() + ".dat"));
+        
+        // Set default path if exists
+        String defaultPath = prefs.get(PREFS_KEY_DEFAULT_PATH, null);
+        if (defaultPath != null) {
+            File defaultDir = new File(defaultPath);
+            if (defaultDir.exists() && defaultDir.isDirectory()) {
+                fileChooser.setCurrentDirectory(defaultDir);
+            }
+        }
+        
+        int userSelection = fileChooser.showSaveDialog(null);
+        
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            
+            try {
+                // Get raw bytes from request only
+                byte[] requestBytes = requestResponse.request().toByteArray().getBytes();
+                
+                // Write to file
+                try (FileOutputStream fos = new FileOutputStream(fileToSave)) {
+                    fos.write(requestBytes);
+                    fos.flush();
+                    
+                    JOptionPane.showMessageDialog(null, 
+                        "File saved successfully to: " + fileToSave.getAbsolutePath(), 
+                        "Success", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                    return ByteArray.byteArray(requestBytes);
+                }
+                
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(null, 
+                    "Error saving file: " + e.getMessage(), 
+                    "Error", 
+                    JOptionPane.ERROR_MESSAGE);
+                return null;
+            }
+        }
+        
+        return null; // User cancelled or operation failed
+    }
+    
+    public static void exportFile(List<HttpRequestResponse> listReqRes){
+        for (HttpRequestResponse reqRes: listReqRes) {
+            copyToTempFile(reqRes);
+        }
+    }
+    public static void chooseDefaultPath(){
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Choose Default Export Path");
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        
+        // Set current default path if exists
+        String currentDefaultPath = prefs.get(PREFS_KEY_DEFAULT_PATH, null);
+        if (currentDefaultPath != null) {
+            File currentDir = new File(currentDefaultPath);
+            if (currentDir.exists() && currentDir.isDirectory()) {
+                fileChooser.setCurrentDirectory(currentDir);
+            }
+        }
+        
+        int userSelection = fileChooser.showOpenDialog(null);
+        
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File selectedDir = fileChooser.getSelectedFile();
+            prefs.put(PREFS_KEY_DEFAULT_PATH, selectedDir.getAbsolutePath());
+            
+            JOptionPane.showMessageDialog(null, 
+                "Default export path set to: " + selectedDir.getAbsolutePath(), 
+                "Default Path Set", 
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    /**
+     * Get the current default export path
+     * @return Default path or null if not set
+     */
+    public static String getDefaultPath() {
+        return prefs.get(PREFS_KEY_DEFAULT_PATH, null);
+    }
+    
+    /**
+     * Set the default export path
+     * @param path The path to set as default
+     */
+    public static void setDefaultPath(String path) {
+        if (path != null) {
+            prefs.put(PREFS_KEY_DEFAULT_PATH, path);
+        } else {
+            prefs.remove(PREFS_KEY_DEFAULT_PATH);
+        }
+    } 
 }

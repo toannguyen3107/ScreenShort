@@ -47,13 +47,17 @@ public class GUI implements ContextMenuItemsProvider {
     private JMenu createPCopyMenu(HttpRequestResponse requestResponse) {
         JMenu pCopyMenu = new JMenu("PCopy");
         pCopyMenu.add(createMenuItemWithReqRes("PCopy has body in response - Ctrl+Alt+Space", menuHandler::handleCopyToExcel, requestResponse));
-        pCopyMenu.add(createMenuItemWithReqRes("PCopy no body in response - Ctrl+Alt+Space", menuHandler::handleCopyToExcelNoBody, requestResponse));
+        pCopyMenu.add(createMenuItemWithReqRes("PCopy no body in response - Ctrl+Alt+C", menuHandler::handleCopyToExcelNoBody, requestResponse));
         return pCopyMenu;
     }
 
     private JMenu createGendataMenu(HttpRequestResponse requestResponse) {
-        JMenu gendataMenu = new JMenu("GenData");
-        gendataMenu.add(createMenuItemWithReqRes("GenData", menuHandler::handleGenDataAction, requestResponse));
+        JMenu gendataMenu = new JMenu("Export File");
+        gendataMenu.add(createMenuItemWithReqRes("Export File - Ctrl+Alt+D", menuHandler::handleGenDataAction, requestResponse));
+
+        JMenuItem chooseDefaultPathItem = createMenuItem("Choose Default Path", menuHandler::handleChooseDefaultPath);
+        gendataMenu.add(chooseDefaultPathItem);
+
         return gendataMenu;
     }
 

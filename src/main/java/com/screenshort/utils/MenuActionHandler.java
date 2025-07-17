@@ -1,5 +1,7 @@
 package com.screenshort.utils;
 
+import java.util.List;
+
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
 
@@ -49,7 +51,9 @@ public class MenuActionHandler {
              return;
         }
         // Assume GenDataToJson exists and works
-        String jsonData = GenDataToJson.formatRequestResponseToJson(requestResponse);
-        GenDataToJson.copyToClipboard(jsonData);
+        GenDataToJson.exportFile(List.of(requestResponse));
+    }
+    public void handleChooseDefaultPath() {
+        GenDataToJson.chooseDefaultPath();
     }
 }
