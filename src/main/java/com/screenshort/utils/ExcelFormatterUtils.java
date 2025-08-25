@@ -100,6 +100,7 @@ public class ExcelFormatterUtils {
         }
         data.append(excelFormat(path)).append(SEPARATOR);
         // ------------- request ------------------
+        path = requestResponse.request().path();
         List<HttpHeader> headersRequest = requestResponse.request().headers();
         String headersToString = headersRequest.stream()
                 .map(HttpHeader::toString)
@@ -210,6 +211,7 @@ public class ExcelFormatterUtils {
         }
         data.append(excelFormat(path)).append(SEPARATOR);
         // ------------- request ------------------
+        path = requestResponse.request().path();
         List<HttpHeader> headersRequest = requestResponse.request().headers();
         String headersToString = headersRequest.stream()
                 .map(HttpHeader::toString)

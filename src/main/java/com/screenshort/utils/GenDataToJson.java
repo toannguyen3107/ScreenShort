@@ -145,7 +145,7 @@ public class GenDataToJson {
         // Show file chooser dialog
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Save HttpRequestResponse to file");
-        fileChooser.setSelectedFile(new File("request_response_" + System.currentTimeMillis() + ".dat"));
+        fileChooser.setSelectedFile(new File("request_response_" + System.currentTimeMillis() + ".req"));
         
         // Set default path if exists
         String defaultPath = prefs.get(PREFS_KEY_DEFAULT_PATH, null);
