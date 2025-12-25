@@ -1,42 +1,42 @@
 # ScreenShort
 
-ScreenShort là một Burp Suite Extension được thiết kế để nâng cao hiệu suất làm việc của pentesters và security researchers. Extension cung cấp các tính năng chụp màn hình, định dạng dữ liệu HTTP và xuất file một cách nhanh chóng.
+ScreenShort is a Burp Suite Extension designed to enhance the productivity of pentesters and security researchers. The extension provides features for capturing screenshots, formatting HTTP data, and exporting files quickly.
 
-## Phiên bản hiện tại: 1.6.6
+## Current Version: 1.6.6
 
-### Lịch sử cập nhật:
-*   **1.6.6**: Cập nhật và tối ưu hóa code
-*   **1.6.4**: Refactor code trong CustomMessageEditorHotKey.java và thêm HotKey cho PCopy
-*   **1.6.03**: Cập nhật PCopy với giao diện đẹp hơn cho request/response
+### Version History:
+*   **1.6.6**: Code update and optimization
+*   **1.6.4**: Refactored code in CustomMessageEditorHotKey.java and added HotKey for PCopy
+*   **1.6.03**: Updated PCopy with improved UI for request/response
 
-## Tính năng chính
+## Main Features
 
-### 1. Screenshot với Annotation
-Chụp màn hình HTTP request/response với khả năng chú thích (annotation):
-*   **Annotate Component (Normal)**: Chụp màn hình vùng được chọn
-*   **Annotate Full Req/Res**: Chụp toàn bộ request/response
+### 1. Screenshot with Annotation
+Capture screenshots of HTTP request/response with annotation capabilities:
+*   **Annotate Component (Normal)**: Capture selected area screenshot
+*   **Annotate Full Req/Res**: Capture full request/response screenshot
 
 ### 2. PCopy (Pretty Copy)
-Định dạng và copy HTTP request/response sang Excel một cách đẹp mắt:
-*   **PCopy with body**: Copy cả body của response
-*   **PCopy no body**: Copy không kèm body của response
+Format and copy HTTP request/response to Excel in a beautiful format:
+*   **PCopy with body**: Copy including response body
+*   **PCopy no body**: Copy without response body
 
 ### 3. Export File
-Xuất dữ liệu HTTP ra file JSON:
-*   Hỗ trợ xuất request/response ra file
-*   Có thể chọn đường dẫn mặc định để lưu file
+Export HTTP data to JSON file:
+*   Support exporting request/response to file
+*   Configurable default save path
 
-## Phím tắt (Hotkeys)
+## Hotkeys
 
-| Phím tắt | Chức năng |
+| Shortcut | Function |
 |----------|-----------|
-| `Ctrl+Shift+S` | Chụp màn hình vùng được chọn |
-| `Ctrl+Shift+Space` | Chụp toàn bộ request/response |
-| `Ctrl+Alt+Space` | PCopy kèm body response |
-| `Ctrl+Alt+C` | PCopy không kèm body response |
-| `Ctrl+Alt+V` | Export dữ liệu ra file |
+| `Ctrl+Shift+S` | Capture selected area screenshot |
+| `Ctrl+Shift+Space` | Capture full request/response screenshot |
+| `Ctrl+Alt+Space` | PCopy with response body |
+| `Ctrl+Alt+C` | PCopy without response body |
+| `Ctrl+Alt+V` | Export data to file |
 
-## Cấu trúc dự án
+## Project Structure
 
 ```
 com.screenshort/
@@ -50,11 +50,11 @@ com.screenshort/
     └── MenuActionHandler.java          # Menu action handler
 ```
 
-## Yêu cầu hệ thống
+## System Requirements
 
-*   **Java Development Kit (JDK)**: Version 21 trở lên
-*   **Burp Suite**: Professional hoặc Community Edition
-*   **Maven**: Để build project
+*   **Java Development Kit (JDK)**: Version 21 or higher
+*   **Burp Suite**: Professional or Community Edition
+*   **Maven**: For building the project
 
 ## Dependencies
 
@@ -63,50 +63,50 @@ com.screenshort/
 *   **Jackson Databind**: 2.19.0
 *   **JUnit**: 3.8.1 (for testing)
 
-## Cài đặt
+## Installation
 
-### 1. Build từ source code
+### 1. Build from source code
 
 ```bash
 # Clone repository
 git clone https://github.com/toannguyen3107/ScreenShort.git
 cd ScreenShort
 
-# Build project với Maven
+# Build project with Maven
 mvn clean package
 
-# File JAR sẽ được tạo tại: target/Screenshot-1.6.6.jar
+# JAR file will be generated at: target/Screenshot-1.6.6.jar
 ```
 
-### 2. Cài đặt vào Burp Suite
+### 2. Install into Burp Suite
 
-1. Mở Burp Suite
-2. Đi tới tab **Extensions**
+1. Open Burp Suite
+2. Navigate to **Extensions** tab
 3. Click **Add**
-4. Chọn file JAR: `target/Screenshot-1.6.6.jar`
-5. Click **Next** để load extension
+4. Select JAR file: `target/Screenshot-1.6.6.jar`
+5. Click **Next** to load the extension
 
-## Sử dụng
+## Usage
 
 ### Screenshot
-1. Click chuột phải vào bất kỳ request/response nào trong Burp Suite
-2. Chọn **Screenshot** → **Annotate Component (Normal)** hoặc **Annotate Full Req/Res**
-3. Hoặc sử dụng phím tắt `Ctrl+Shift+S` hoặc `Ctrl+Shift+Space`
+1. Right-click on any request/response in Burp Suite
+2. Select **Screenshot** → **Annotate Component (Normal)** or **Annotate Full Req/Res**
+3. Or use hotkeys `Ctrl+Shift+S` or `Ctrl+Shift+Space`
 
 ### PCopy (Copy to Excel)
-1. Click chuột phải vào request/response
-2. Chọn **PCopy** → Chọn loại copy phù hợp
-3. Dữ liệu đã được format sẽ được copy vào clipboard
-4. Paste vào Excel để xem kết quả
+1. Right-click on request/response
+2. Select **PCopy** → Choose appropriate copy type
+3. Formatted data will be copied to clipboard
+4. Paste into Excel to view results
 
 ### Export File
-1. Click chuột phải vào request/response
-2. Chọn **Export File** → **Export File**
-3. Chọn vị trí lưu file (hoặc sử dụng đường dẫn mặc định)
+1. Right-click on request/response
+2. Select **Export File** → **Export File**
+3. Choose save location (or use default path)
 
 ## Testing
 
-Chạy unit tests:
+Run unit tests:
 
 ```bash
 mvn test
@@ -126,4 +126,4 @@ Copyright @toancse
 
 ---
 
-**Note**: Extension này được phát triển để hỗ trợ công việc security testing và penetration testing một cách hợp pháp. Vui lòng chỉ sử dụng trên các hệ thống mà bạn có quyền kiểm tra.
+**Note**: This extension is developed to support legitimate security testing and penetration testing activities. Please only use it on systems you have permission to test.
