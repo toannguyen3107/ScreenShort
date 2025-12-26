@@ -5,7 +5,7 @@ ScreenShort is a Burp Suite Extension designed to enhance the productivity of pe
 ## Current Version: 1.6.6
 
 ### Version History:
-*   **1.6.6**: Code update and optimization
+*   **1.6.6**: Code refactoring and optimization - added new utility classes
 *   **1.6.4**: Refactored code in CustomMessageEditorHotKey.java and added HotKey for PCopy
 *   **1.6.03**: Updated PCopy with improved UI for request/response
 
@@ -16,13 +16,15 @@ Capture screenshots of HTTP request/response with annotation capabilities:
 *   **Annotate Component (Normal)**: Capture selected area screenshot
 *   **Annotate Full Req/Res**: Capture full request/response screenshot
 
+> **Important Note:** If you are using screenshot in **Request Edited** mode and the screenshot is incorrect or showing wrong content, press **`Ctrl+O`** (Send to Organizer in Burp Suite) first, then capture the screenshot again to get the correct result.
+
 ### 2. PCopy (Pretty Copy)
 Format and copy HTTP request/response to Excel in a beautiful format:
 *   **PCopy with body**: Copy including response body
 *   **PCopy no body**: Copy without response body
 
 ### 3. Export File
-Export HTTP data to JSON file:
+Export HTTP data to file:
 *   Support exporting request/response to file
 *   Configurable default save path
 
@@ -33,7 +35,7 @@ Export HTTP data to JSON file:
 | `Ctrl+Shift+S` | Capture selected area screenshot |
 | `Ctrl+Shift+Space` | Capture full request/response screenshot |
 | `Ctrl+Alt+Space` | PCopy with response body |
-| `Ctrl+Alt+C` | PCopy without response body |
+| `Ctrl+Alt+X` | PCopy without response body |
 | `Ctrl+Alt+V` | Export data to file |
 
 ## Project Structure
@@ -43,11 +45,15 @@ com.screenshort/
 ├── ScreenShort.java              # Main extension class
 ├── GUI.java                      # Context menu provider
 └── utils/
-    ├── CustomMessageEditorHotKey.java  # Hotkey handler
-    ├── ScreenshotUtils.java            # Screenshot logic
-    ├── ExcelFormatterUtils.java        # Excel formatting
-    ├── GenDataToJson.java              # JSON export
-    └── MenuActionHandler.java          # Menu action handler
+    ├── Constants.java            # Centralized constants
+    ├── ClipboardUtils.java       # Clipboard operations
+    ├── ComponentFinder.java      # Component discovery utilities
+    ├── AnnotationEditor.java     # Screenshot annotation editor
+    ├── ScreenshotUtils.java      # Screenshot capture logic
+    ├── ExcelFormatterUtils.java  # Excel formatting
+    ├── GenDataToJson.java        # JSON/File export
+    ├── MenuActionHandler.java    # Menu action handler
+    └── CustomMessageEditorHotKey.java  # Hotkey handler
 ```
 
 ## System Requirements
@@ -103,6 +109,12 @@ mvn clean package
 1. Right-click on request/response
 2. Select **Export File** → **Export File**
 3. Choose save location (or use default path)
+
+## CI/CD
+
+This project uses GitHub Actions for automated build and release:
+- On every push to `main` branch, the project is automatically built
+- A new release is created with filename format: `screenshort_DD_MM_YYYY.jar`
 
 ## Testing
 
