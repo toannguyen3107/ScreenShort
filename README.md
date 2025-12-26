@@ -1,50 +1,112 @@
 # ScreenShort
 
-ScreenShort is a Java application designed to capture screenshots and provide utility functions for data processing, including Excel formatting and JSON generation.
-## versions:
-*   **1.6.4**: Update refactor code in CustomMessageEditorHotKey.java and add HotKey for PCopy
-## Features
+ScreenShort is a Burp Suite Extension designed to enhance the productivity of pentesters and security researchers. The extension provides features for capturing screenshots, formatting HTTP data, and exporting files quickly.
 
-*   **Screenshot Capture**: Capture screenshots of your screen.
-*   **Graphical User Interface (GUI)**: Interact with the application through a user-friendly interface.
-*   **Excel Formatting Utilities**: Tools for formatting data into Excel files.
-*   **JSON Generation Utilities**: Tools for generating JSON data.
+## Current Version: 1.6.6
+
+### Version History:
+*   **1.6.6**: Code update and optimization
+*   **1.6.4**: Refactored code in CustomMessageEditorHotKey.java and added HotKey for PCopy
+*   **1.6.03**: Updated PCopy with improved UI for request/response
+
+## Main Features
+
+### 1. Screenshot with Annotation
+Capture screenshots of HTTP request/response with annotation capabilities:
+*   **Annotate Component (Normal)**: Capture selected area screenshot
+*   **Annotate Full Req/Res**: Capture full request/response screenshot
+
+### 2. PCopy (Pretty Copy)
+Format and copy HTTP request/response to Excel in a beautiful format:
+*   **PCopy with body**: Copy including response body
+*   **PCopy no body**: Copy without response body
+
+### 3. Export File
+Export HTTP data to JSON file:
+*   Support exporting request/response to file
+*   Configurable default save path
+
+## Hotkeys
+
+| Shortcut | Function |
+|----------|-----------|
+| `Ctrl+Shift+S` | Capture selected area screenshot |
+| `Ctrl+Shift+Space` | Capture full request/response screenshot |
+| `Ctrl+Alt+Space` | PCopy with response body |
+| `Ctrl+Alt+C` | PCopy without response body |
+| `Ctrl+Alt+V` | Export data to file |
 
 ## Project Structure
 
-The project is organized into the following main packages:
+```
+com.screenshort/
+├── ScreenShort.java              # Main extension class
+├── GUI.java                      # Context menu provider
+└── utils/
+    ├── CustomMessageEditorHotKey.java  # Hotkey handler
+    ├── ScreenshotUtils.java            # Screenshot logic
+    ├── ExcelFormatterUtils.java        # Excel formatting
+    ├── GenDataToJson.java              # JSON export
+    └── MenuActionHandler.java          # Menu action handler
+```
 
-*   `com.screenshort`: Contains the main application class (`ScreenShort.java`) and the GUI implementation (`GUI.java`).
-*   `com.screenshort.utils`: Contains various utility classes, including:
-    *   `ExcelFormatterUtils.java`: Handles Excel formatting logic.
-    *   `GenDataToJson.java`: Handles JSON data generation.
-    *   `MenuActionHandler.java`: Likely handles actions triggered by GUI menu items.
-    *   `ScreenshotUtils.java`: Contains the core screenshot capture logic.
-    *   `CustomMessageEditorHotKey.java`: (Purpose inferred from name, likely related to custom key bindings).
+## System Requirements
 
-## Building and Running
+*   **Java Development Kit (JDK)**: Version 21 or higher
+*   **Burp Suite**: Professional or Community Edition
+*   **Maven**: For building the project
 
-This project uses Maven.
+## Dependencies
 
-1.  Ensure you have a compatible **Java Development Kit (JDK)** installed.
-2.  Navigate to the project root directory in your terminal.
-3.  Build the project using Maven:
-    ```bash
-    mvn clean package
-    ```
-4.  Run the application. The exact command may vary depending on how the main class is configured in the `pom.xml`, but it will likely be similar to:
-    ```bash
-    java -jar target/ScreenShort-1.0-SNAPSHOT.jar
-    ```
-    (Replace `ScreenShort-1.0-SNAPSHOT.jar` with the actual generated jar file name if different).
+*   **Burp Montoya API**: 2025.4
+*   **JSON**: 20240303
+*   **Jackson Databind**: 2.19.0
+*   **JUnit**: 3.8.1 (for testing)
+
+## Installation
+
+### 1. Build from source code
+
+```bash
+# Clone repository
+git clone https://github.com/toannguyen3107/ScreenShort.git
+cd ScreenShort
+
+# Build project with Maven
+mvn clean package
+
+# JAR file will be generated at: target/Screenshot-1.6.6.jar
+```
+
+### 2. Install into Burp Suite
+
+1. Open Burp Suite
+2. Navigate to **Extensions** tab
+3. Click **Add**
+4. Select JAR file: `target/Screenshot-1.6.6.jar`
+5. Click **Next** to load the extension
+
+## Usage
+
+### Screenshot
+1. Right-click on any request/response in Burp Suite
+2. Select **Screenshot** → **Annotate Component (Normal)** or **Annotate Full Req/Res**
+3. Or use hotkeys `Ctrl+Shift+S` or `Ctrl+Shift+Space`
+
+### PCopy (Copy to Excel)
+1. Right-click on request/response
+2. Select **PCopy** → Choose appropriate copy type
+3. Formatted data will be copied to clipboard
+4. Paste into Excel to view results
+
+### Export File
+1. Right-click on request/response
+2. Select **Export File** → **Export File**
+3. Choose save location (or use default path)
 
 ## Testing
 
-Unit tests are located in `src/test/java/com/screenshot/`.
-
-*   `AppTest.java`: Contains basic unit tests for the application.
-
-To run tests using Maven:
+Run unit tests:
 
 ```bash
 mvn test
@@ -54,8 +116,14 @@ mvn test
 
 @quangit, @h4x0rl33tx
 
-
-
 ## Author
 
 @t0ann9uy3n (Toan Nguyen)
+
+## License
+
+Copyright @toancse
+
+---
+
+**Note**: This extension is developed to support legitimate security testing and penetration testing activities. Please only use it on systems you have permission to test.
