@@ -6,30 +6,38 @@ import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.params.ParsedHttpParameter;
-import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.json.JSONObject;
-import org.json.JSONException;
 
-public class ExcelFormatterUtils {
-    private static final String SEPARATOR = "\t";
+/**
+ * Utilities for formatting HTTP request/response data for Excel.
+ */
+public final class ExcelFormatterUtils {
+
+    private ExcelFormatterUtils() {
+        // Utility class - prevent instantiation
+    }
 
     /**
-     * Định dạng dữ liệu cho Excel, xử lý ký tự đặc biệt và giới hạn độ dài.
-     * (Lấy từ phương thức static excelFormat trong ExcelFormatter cũ)
+     * Formats data for Excel, handling special characters and length limits.
+     *
+     * @param data The data to format
+     * @return Formatted string suitable for Excel
      */
     public static String excelFormat(String data) {
         if (data == null) {
             return "";
         }
         data = data.stripLeading();
-        if (data.length() > 29000) {
-            data = data.substring(0, 29000);
+        if (data.length() > Constants.MAX_EXCEL_CELL_LENGTH) {
+            data = data.substring(0, Constants.MAX_EXCEL_CELL_LENGTH);
         }
+
         StringBuilder formattedData = new StringBuilder();
         for (char c : data.toCharArray()) {
             switch (c) {
@@ -60,247 +68,224 @@ public class ExcelFormatterUtils {
     }
 
     /**
-     * Pretty-prints a JSON string. If the input is not valid JSON, it returns the original string.
+     * Pretty-prints a JSON string with indentation.
+     *
+     * @param jsonString The JSON string to format
+     * @return Formatted JSON string, or original string if not valid JSON
      */
     private static String prettyPrintJson(String jsonString) {
         if (jsonString == null || jsonString.trim().isEmpty()) {
             return "";
         }
         try {
-            // Attempt to parse as JSONObject
             JSONObject jsonObject = new JSONObject(jsonString);
-            return jsonObject.toString(2); // Indent with 2 spaces
+            return jsonObject.toString(2);
         } catch (JSONException e) {
-            // Not a valid JSON object, try as array if needed, or return original
-            // For simplicity, we'll just return the original string if it's not a JSON object
+            // Not a valid JSON object, return original
             return jsonString;
         }
     }
 
     /**
-     * Tạo chuỗi dữ liệu theo định dạng Excel từ HttpRequestResponse, bao gồm body.
-     * 
-     * @param requestResponse Dữ liệu HttpRequestResponse.
-     * @return Chuỗi định dạng sẵn sàng copy.
+     * Formats HttpRequestResponse for Excel with full body content.
+     *
+     * @param requestResponse The request/response data
+     * @return Tab-separated string ready for Excel paste
      */
     public static String formatRequestResponseForExcel(HttpRequestResponse requestResponse) {
+        return formatRequestResponse(requestResponse, true);
+    }
+
+    /**
+     * Formats HttpRequestResponse for Excel with body content redacted.
+     *
+     * @param requestResponse The request/response data
+     * @return Tab-separated string ready for Excel paste
+     */
+    public static String formatRequestResponseForExcelNoBody(HttpRequestResponse requestResponse) {
+        return formatRequestResponse(requestResponse, false);
+    }
+
+    /**
+     * Common method for formatting request/response data.
+     *
+     * @param requestResponse The request/response data
+     * @param includeBody     Whether to include body content
+     * @return Tab-separated string ready for Excel paste
+     */
+    private static String formatRequestResponse(HttpRequestResponse requestResponse, boolean includeBody) {
         StringBuilder data = new StringBuilder();
-        // ------------- method ------------------
+
+        // Method
         String method = requestResponse.request().method();
-        data.append(excelFormat(method)).append(SEPARATOR);
-        // ------------- host ------------------
+        data.append(excelFormat(method)).append(Constants.EXCEL_SEPARATOR);
+
+        // Host
         HttpService httpService = requestResponse.httpService();
         String host = httpService.host() + ":" + httpService.port();
-        data.append(excelFormat(host)).append(SEPARATOR);
-        // ------------- path ------------------
+        data.append(excelFormat(host)).append(Constants.EXCEL_SEPARATOR);
+
+        // Path (without query string)
         String path = requestResponse.request().path();
         int questionMarkIndex = path.indexOf('?');
         if (questionMarkIndex != -1) {
             path = path.substring(0, questionMarkIndex);
         }
-        data.append(excelFormat(path)).append(SEPARATOR);
-        // ------------- request ------------------
-        path = requestResponse.request().path();
-        List<HttpHeader> headersRequest = requestResponse.request().headers();
-        String headersToString = headersRequest.stream()
-                .map(HttpHeader::toString)
-                .collect(Collectors.joining("\n"));
-        String firstLineOfReqHead = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
-        String requestBodyString = new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8);
-        String endString = "\n" + prettyPrintJson(requestBodyString);
-        headersToString = firstLineOfReqHead + headersToString +"\n"+ endString;
-        data.append(excelFormat(headersToString)).append(SEPARATOR);
-        // ------------- response ------------------
-        List<HttpHeader> headersResponse = requestResponse.response().headers();
-        String headersResponseToString = headersResponse.stream()
-                .map(HttpHeader::toString)
-                .collect(Collectors.joining("\n"));
-        String firstLineRes = requestResponse.response().toString().split("\n", 2)[0];
-        String responseBodyString = new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8);
-        String endString2 = "\n" + prettyPrintJson(responseBodyString);
-        headersResponseToString = firstLineRes + "\n" + headersResponseToString + "\n" + endString2;
-        data.append(excelFormat(headersResponseToString)).append(SEPARATOR);
-        // ------------- body ------------------
-        String requestBody = prettyPrintJson(new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8));
-        data.append(excelFormat(requestBody)).append(SEPARATOR);
-        String responseBody = prettyPrintJson(new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8));
-        data.append(excelFormat(responseBody)).append(SEPARATOR);
-        // ------------- raw summary ------------------
-        StringBuilder rawSummary = new StringBuilder();
-        rawSummary.append("______ REQUEST ______\n");
-        rawSummary.append("GET Params\n");
-        // Đánh số và nối tên GET Params
-        List<ParsedHttpParameter> getParams = requestResponse.request().parameters(HttpParameterType.URL);
-        for (int i = 0; i < getParams.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(getParams.get(i).name()).append(" | ");
-        }
-        if (!getParams.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có params
-        }
-        rawSummary.append("\n");
-        rawSummary.append("POST Params\n");
-        // Đánh số và nối tên POST Params
-        List<ParsedHttpParameter> postParams = requestResponse.request().parameters(HttpParameterType.BODY);
-        for (int i = 0; i < postParams.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(postParams.get(i).name()).append(" | ");
-        }
-        if (!postParams.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có params
-        }
-        rawSummary.append("\n");
-        rawSummary.append("HEADERS\n");
-        // Đánh số và nối tên Request Headers
-        List<HttpHeader> requestHeaders = requestResponse.request().headers();
-        for (int i = 0; i < requestHeaders.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(requestHeaders.get(i).name()).append(" | ");
-        }
-        if (!requestHeaders.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có headers
-        }
-        rawSummary.append("\n");
-        rawSummary.append("Cookie\n");
-        // Đánh số và nối tên Request Cookies
-        List<ParsedHttpParameter> requestCookies = requestResponse.request().parameters(HttpParameterType.COOKIE);
-        for (int i = 0; i < requestCookies.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(requestCookies.get(i).name()).append(" | ");
-        }
-        if (!requestCookies.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
-        }
-        rawSummary.append("\n\n");
-        rawSummary.append("______ RESPONSE ______\n");
-        rawSummary.append("HEADERS\n");
-        // Đánh số và nối tên Response Headers
-        List<HttpHeader> responseHeaders = requestResponse.response().headers();
-        for (int i = 0; i < responseHeaders.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(responseHeaders.get(i).name()).append(" | ");
-        }
-        if (!responseHeaders.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có headers
-        }
-        rawSummary.append("\n");
-        rawSummary.append("COOKIES\n");
-        // Đánh số và nối tên Response Cookies
-        List<Cookie> responseCookies = requestResponse.response().cookies();
-        for (int i = 0; i < responseCookies.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(responseCookies.get(i).name()).append(" | ");
-        }
-        if (!responseCookies.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
-        }
-        rawSummary.append("\n\n");
-        rawSummary.append("______ RAW ______\n");
-        data.append(excelFormat(rawSummary.toString()));
+        data.append(excelFormat(path)).append(Constants.EXCEL_SEPARATOR);
+
+        // Full request
+        String fullPath = requestResponse.request().path();
+        String requestSection = formatRequestSection(requestResponse, method, fullPath, includeBody);
+        data.append(excelFormat(requestSection)).append(Constants.EXCEL_SEPARATOR);
+
+        // Full response
+        String responseSection = formatResponseSection(requestResponse, includeBody);
+        data.append(excelFormat(responseSection)).append(Constants.EXCEL_SEPARATOR);
+
+        // Request body
+        String requestBody = includeBody
+                ? prettyPrintJson(new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8))
+                : Constants.REDACTED_TEXT;
+        data.append(excelFormat(requestBody)).append(Constants.EXCEL_SEPARATOR);
+
+        // Response body
+        String responseBody = includeBody
+                ? prettyPrintJson(new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8))
+                : Constants.REDACTED_TEXT;
+        data.append(excelFormat(responseBody)).append(Constants.EXCEL_SEPARATOR);
+
+        // Raw summary
+        String rawSummary = buildRawSummary(requestResponse);
+        data.append(excelFormat(rawSummary));
+
         return data.toString();
     }
 
-    public static String formatRequestResponseForExcelNoBody(HttpRequestResponse requestResponse) {
-        StringBuilder data = new StringBuilder();
-        // ------------- method ------------------
-        String method = requestResponse.request().method();
-        data.append(excelFormat(method)).append(SEPARATOR);
-        // ------------- host ------------------
-        HttpService httpService = requestResponse.httpService();
-        String host = httpService.host() + ":" + httpService.port();
-        data.append(excelFormat(host)).append(SEPARATOR);
-        // ------------- path ------------------
-        String path = requestResponse.request().path();
-        int questionMarkIndex = path.indexOf('?');
-        if (questionMarkIndex != -1) {
-            path = path.substring(0, questionMarkIndex);
-        }
-        data.append(excelFormat(path)).append(SEPARATOR);
-        // ------------- request ------------------
-        path = requestResponse.request().path();
-        List<HttpHeader> headersRequest = requestResponse.request().headers();
-        String headersToString = headersRequest.stream()
+    /**
+     * Formats the request section with headers and optionally body.
+     */
+    private static String formatRequestSection(HttpRequestResponse requestResponse, String method, String path, boolean includeBody) {
+        List<HttpHeader> headers = requestResponse.request().headers();
+        String headersString = headers.stream()
                 .map(HttpHeader::toString)
                 .collect(Collectors.joining("\n"));
-        String firstLineOfReqHead = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
-        headersToString = firstLineOfReqHead + headersToString + "\n\nREDACTED";
-        data.append(excelFormat(headersToString)).append(SEPARATOR);
-        List<HttpHeader> headersResponse = requestResponse.response().headers();
-        String headersResponseToString = headersResponse.stream()
-                .map(HttpHeader::toString)
-                .collect(Collectors.joining("\n"));
-        String firstLineRes = requestResponse.response().toString().split("\n", 2)[0];
-        headersResponseToString = firstLineRes + "\n" + headersResponseToString;
-        data.append(excelFormat(headersResponseToString + "\n\nREDACTED")).append(SEPARATOR);
-        String requestBody = "REDACTED";
-        data.append(excelFormat(requestBody)).append(SEPARATOR);
-        String responseBody = "REDACTED"; // Giữ nguyên REDACTED vì đây là hàm NoBody
-        data.append(excelFormat(responseBody)).append(SEPARATOR);
-        // ------------- raw summary ------------------
-        StringBuilder rawSummary = new StringBuilder();
-        rawSummary.append("______ REQUEST ______\n");
-        rawSummary.append("GET Params\n");
-        // Đánh số và nối tên GET Params
-        List<ParsedHttpParameter> getParams = requestResponse.request().parameters(HttpParameterType.URL);
-        for (int i = 0; i < getParams.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(getParams.get(i).name()).append(" | ");
+
+        String firstLine = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
+
+        if (includeBody) {
+            String bodyString = new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8);
+            String prettyBody = "\n" + prettyPrintJson(bodyString);
+            return firstLine + headersString + "\n" + prettyBody;
+        } else {
+            return firstLine + headersString + "\n\n" + Constants.REDACTED_TEXT;
         }
-        if (!getParams.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có params
-        }
-        rawSummary.append("\n");
-        rawSummary.append("POST Params\n");
-        // Đánh số và nối tên POST Params
-        List<ParsedHttpParameter> postParams = requestResponse.request().parameters(HttpParameterType.BODY);
-        for (int i = 0; i < postParams.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(postParams.get(i).name()).append(" | ");
-        }
-        if (!postParams.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có params
-        }
-        rawSummary.append("\n");
-        rawSummary.append("HEADERS\n");
-        // Đánh số và nối tên Request Headers
-        List<HttpHeader> requestCookies = requestResponse.request().headers();
-        for (int i = 0; i < requestCookies.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(requestCookies.get(i).name()).append(" | ");
-        }
-        if (!requestCookies.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
-        }
-        rawSummary.append("\n");
-        rawSummary.append("Cookie\n");
-        // Đánh số và nối tên Request Cookies
-        List<ParsedHttpParameter> requestCookies1 = requestResponse.request().parameters(HttpParameterType.COOKIE);
-        for (int i = 0; i < requestCookies1.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(requestCookies1.get(i).name()).append(" | ");
-        }
-        if (!requestCookies1.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
-        }
-        rawSummary.append("\n\n");
-        rawSummary.append("______ RESPONSE ______\n");
-        rawSummary.append("HEADERS\n");
-        // Đánh số và nối tên Response Headers
-        List<HttpHeader> responseHeaders = requestResponse.response().headers();
-        for (int i = 0; i < responseHeaders.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(responseHeaders.get(i).name()).append(" | ");
-        }
-        if (!responseHeaders.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có headers
-        }
-        rawSummary.append("\n");
-        rawSummary.append("COOKIES\n");
-        // Đánh số và nối tên Response Cookies
-        List<Cookie> responseCookies1 = requestResponse.response().cookies();
-        for (int i = 0; i < responseCookies1.size(); i++) {
-            rawSummary.append(i + 1).append(". ").append(responseCookies1.get(i).name()).append(" | ");
-        }
-        if (!responseCookies1.isEmpty()) {
-            rawSummary.setLength(rawSummary.length() - 3); // Xóa " | " cuối cùng nếu có cookies
-        }
-        rawSummary.append("\n\n");
-        rawSummary.append("______ RAW ______\n");
-        data.append(excelFormat(rawSummary.toString()));
-        return data.toString();
     }
+
+    /**
+     * Formats the response section with headers and optionally body.
+     */
+    private static String formatResponseSection(HttpRequestResponse requestResponse, boolean includeBody) {
+        List<HttpHeader> headers = requestResponse.response().headers();
+        String headersString = headers.stream()
+                .map(HttpHeader::toString)
+                .collect(Collectors.joining("\n"));
+
+        String firstLine = requestResponse.response().toString().split("\n", 2)[0];
+
+        if (includeBody) {
+            String bodyString = new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8);
+            String prettyBody = "\n" + prettyPrintJson(bodyString);
+            return firstLine + "\n" + headersString + "\n" + prettyBody;
+        } else {
+            return firstLine + "\n" + headersString + "\n\n" + Constants.REDACTED_TEXT;
+        }
+    }
+
+    /**
+     * Builds the raw summary section with parameter and header names.
+     */
+    private static String buildRawSummary(HttpRequestResponse requestResponse) {
+        StringBuilder summary = new StringBuilder();
+
+        summary.append("______ REQUEST ______\n");
+
+        // GET Params
+        summary.append("GET Params\n");
+        appendParameterNames(summary, requestResponse.request().parameters(HttpParameterType.URL));
+
+        // POST Params
+        summary.append("POST Params\n");
+        appendParameterNames(summary, requestResponse.request().parameters(HttpParameterType.BODY));
+
+        // Request Headers
+        summary.append("HEADERS\n");
+        appendHeaderNames(summary, requestResponse.request().headers());
+
+        // Request Cookies
+        summary.append("Cookie\n");
+        appendParameterNames(summary, requestResponse.request().parameters(HttpParameterType.COOKIE));
+
+        summary.append("\n______ RESPONSE ______\n");
+
+        // Response Headers
+        summary.append("HEADERS\n");
+        appendHeaderNames(summary, requestResponse.response().headers());
+
+        // Response Cookies
+        summary.append("COOKIES\n");
+        appendCookieNames(summary, requestResponse.response().cookies());
+
+        summary.append("\n______ RAW ______\n");
+
+        return summary.toString();
+    }
+
+    /**
+     * Appends numbered parameter names to the summary.
+     */
+    private static void appendParameterNames(StringBuilder summary, List<ParsedHttpParameter> params) {
+        for (int i = 0; i < params.size(); i++) {
+            summary.append(i + 1).append(". ").append(params.get(i).name()).append(" | ");
+        }
+        if (!params.isEmpty()) {
+            summary.setLength(summary.length() - 3); // Remove trailing " | "
+        }
+        summary.append("\n");
+    }
+
+    /**
+     * Appends numbered header names to the summary.
+     */
+    private static void appendHeaderNames(StringBuilder summary, List<HttpHeader> headers) {
+        for (int i = 0; i < headers.size(); i++) {
+            summary.append(i + 1).append(". ").append(headers.get(i).name()).append(" | ");
+        }
+        if (!headers.isEmpty()) {
+            summary.setLength(summary.length() - 3); // Remove trailing " | "
+        }
+        summary.append("\n");
+    }
+
+    /**
+     * Appends numbered cookie names to the summary.
+     */
+    private static void appendCookieNames(StringBuilder summary, List<Cookie> cookies) {
+        for (int i = 0; i < cookies.size(); i++) {
+            summary.append(i + 1).append(". ").append(cookies.get(i).name()).append(" | ");
+        }
+        if (!cookies.isEmpty()) {
+            summary.setLength(summary.length() - 3); // Remove trailing " | "
+        }
+        summary.append("\n");
+    }
+
+    /**
+     * Copies text to the system clipboard.
+     * Delegates to ClipboardUtils for centralized clipboard handling.
+     *
+     * @param data The text to copy
+     */
     public static void copyToClipboard(String data) {
-        StringSelection stringSelection = new StringSelection(data);
-        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-        clipboard.setContents(stringSelection, null);
+        ClipboardUtils.copyToClipboard(data);
     }
 }

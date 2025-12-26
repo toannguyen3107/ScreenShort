@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%d_%m_%Y')" >> $GITHUB_OUTPUT
+
+      - name: Rename JAR file
+        run: |
+          mv target/Screenshot-*.jar target/screenshort_${{ steps.date.outputs.date }}.jar
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.date.outputs.date }}
+          name: Release ${{ steps.date.outputs.date }}
+          body: |
+            Automated release for ScreenShort extension.
+
+            Build date: ${{ steps.date.outputs.date }}
+          files: target/screenshort_${{ steps.date.outputs.date }}.jar
+          draft: false
+          prerelease: false
