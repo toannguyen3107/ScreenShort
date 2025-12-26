@@ -26,23 +26,26 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      - name: Get current date
-        id: date
-        run: echo "date=$(date +'%d_%m_%Y')" >> $GITHUB_OUTPUT
+      - name: Get current date and short SHA
+        id: info
+        run: |
+          echo "date=$(date +'%d_%m_%Y')" >> $GITHUB_OUTPUT
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Rename JAR file
         run: |
-          mv target/Screenshot-*.jar target/screenshort_${{ steps.date.outputs.date }}.jar
+          mv target/Screenshot-*.jar target/screenshort_${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}.jar
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.date.outputs.date }}
-          name: Release ${{ steps.date.outputs.date }}
+          tag_name: v${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}
+          name: Release ${{ steps.info.outputs.date }} (${{ steps.info.outputs.short_sha }})
           body: |
             Automated release for ScreenShort extension.
 
-            Build date: ${{ steps.date.outputs.date }}
-          files: target/screenshort_${{ steps.date.outputs.date }}.jar
+            - **Build date:** ${{ steps.info.outputs.date }}
+            - **Commit:** ${{ github.sha }}
+          files: target/screenshort_${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}.jar
           draft: false
           prerelease: false
