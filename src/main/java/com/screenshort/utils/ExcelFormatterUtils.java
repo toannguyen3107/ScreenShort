@@ -24,7 +24,49 @@ public final class ExcelFormatterUtils {
     }
 
     /**
+     * Checks if the given byte array contains binary data.
+     * Binary data is detected by checking the ratio of non-printable characters.
+     *
+     * @param data The byte array to check
+     * @return true if the data appears to be binary, false otherwise
+     */
+    public static boolean isBinaryContent(byte[] data) {
+        if (data == null || data.length == 0) {
+            return false;
+        }
+
+        int nonPrintableCount = 0;
+        int checkLength = Math.min(data.length, 8192); // Check first 8KB for performance
+
+        for (int i = 0; i < checkLength; i++) {
+            byte b = data[i];
+            // Check for null bytes or control characters (except tab, newline, carriage return)
+            if (b == 0 || (b < 32 && b != 9 && b != 10 && b != 13) || b == 127) {
+                nonPrintableCount++;
+            }
+        }
+
+        double ratio = (double) nonPrintableCount / checkLength;
+        return ratio > Constants.BINARY_THRESHOLD;
+    }
+
+    /**
+     * Checks if the given string contains binary data.
+     *
+     * @param data The string to check
+     * @return true if the data appears to be binary, false otherwise
+     */
+    public static boolean isBinaryContent(String data) {
+        if (data == null || data.isEmpty()) {
+            return false;
+        }
+        return isBinaryContent(data.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
      * Formats data for Excel, handling special characters and length limits.
+     * This method escapes newlines, control characters, and other special chars
+     * to prevent Excel from crashing or creating unwanted line breaks.
      *
      * @param data The data to format
      * @return Formatted string suitable for Excel
@@ -44,6 +86,12 @@ public final class ExcelFormatterUtils {
                 case '\t':
                     formattedData.append("\\t");
                     break;
+                case '\n':
+                    formattedData.append("\\n");
+                    break;
+                case '\r':
+                    formattedData.append("\\r");
+                    break;
                 case '"':
                     formattedData.append("\"\"");
                     break;
@@ -60,7 +108,10 @@ public final class ExcelFormatterUtils {
                     formattedData.append("&#39;");
                     break;
                 default:
-                    formattedData.append(c);
+                    // Skip control characters (ASCII 0-31 except already handled, and 127)
+                    if (c >= 32 && c != 127) {
+                        formattedData.append(c);
+                    }
                     break;
             }
         }
@@ -143,15 +194,31 @@ public final class ExcelFormatterUtils {
         data.append(excelFormat(responseSection)).append(Constants.EXCEL_SEPARATOR);
 
         // Request body
-        String requestBody = includeBody
-                ? prettyPrintJson(new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8))
-                : Constants.REDACTED_TEXT;
+        String requestBody;
+        if (!includeBody) {
+            requestBody = Constants.REDACTED_TEXT;
+        } else {
+            byte[] requestBodyBytes = requestResponse.request().body().getBytes();
+            if (isBinaryContent(requestBodyBytes)) {
+                requestBody = Constants.BINARY_DATA_TEXT;
+            } else {
+                requestBody = prettyPrintJson(new String(requestBodyBytes, StandardCharsets.UTF_8));
+            }
+        }
         data.append(excelFormat(requestBody)).append(Constants.EXCEL_SEPARATOR);
 
         // Response body
-        String responseBody = includeBody
-                ? prettyPrintJson(new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8))
-                : Constants.REDACTED_TEXT;
+        String responseBody;
+        if (!includeBody) {
+            responseBody = Constants.REDACTED_TEXT;
+        } else {
+            byte[] responseBodyBytes = requestResponse.response().body().getBytes();
+            if (isBinaryContent(responseBodyBytes)) {
+                responseBody = Constants.BINARY_DATA_TEXT;
+            } else {
+                responseBody = prettyPrintJson(new String(responseBodyBytes, StandardCharsets.UTF_8));
+            }
+        }
         data.append(excelFormat(responseBody)).append(Constants.EXCEL_SEPARATOR);
 
         // Raw summary
@@ -173,8 +240,14 @@ public final class ExcelFormatterUtils {
         String firstLine = method + " " + path + " " + requestResponse.request().httpVersion() + "\n";
 
         if (includeBody) {
-            String bodyString = new String(requestResponse.request().body().getBytes(), StandardCharsets.UTF_8);
-            String prettyBody = "\n" + prettyPrintJson(bodyString);
+            byte[] bodyBytes = requestResponse.request().body().getBytes();
+            String prettyBody;
+            if (isBinaryContent(bodyBytes)) {
+                prettyBody = "\n" + Constants.BINARY_DATA_TEXT;
+            } else {
+                String bodyString = new String(bodyBytes, StandardCharsets.UTF_8);
+                prettyBody = "\n" + prettyPrintJson(bodyString);
+            }
             return firstLine + headersString + "\n" + prettyBody;
         } else {
             return firstLine + headersString + "\n\n" + Constants.REDACTED_TEXT;
@@ -193,8 +266,14 @@ public final class ExcelFormatterUtils {
         String firstLine = requestResponse.response().toString().split("\n", 2)[0];
 
         if (includeBody) {
-            String bodyString = new String(requestResponse.response().body().getBytes(), StandardCharsets.UTF_8);
-            String prettyBody = "\n" + prettyPrintJson(bodyString);
+            byte[] bodyBytes = requestResponse.response().body().getBytes();
+            String prettyBody;
+            if (isBinaryContent(bodyBytes)) {
+                prettyBody = "\n" + Constants.BINARY_DATA_TEXT;
+            } else {
+                String bodyString = new String(bodyBytes, StandardCharsets.UTF_8);
+                prettyBody = "\n" + prettyPrintJson(bodyString);
+            }
             return firstLine + "\n" + headersString + "\n" + prettyBody;
         } else {
             return firstLine + "\n" + headersString + "\n\n" + Constants.REDACTED_TEXT;
