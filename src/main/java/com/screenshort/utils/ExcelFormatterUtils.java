@@ -118,6 +118,134 @@ public final class ExcelFormatterUtils {
     }
 
     /**
+     * Sanitizes multipart/form-data body by replacing binary content in each part
+     * while preserving the multipart structure (boundaries, headers).
+     *
+     * @param bodyString The multipart body as string
+     * @param boundary   The boundary string from Content-Type header
+     * @return Sanitized multipart body with binary parts replaced by [BINARY DATA]
+     */
+    private static String sanitizeMultipartBody(String bodyString, String boundary) {
+        if (bodyString == null || boundary == null || boundary.isEmpty()) {
+            return bodyString;
+        }
+
+        String delimiter = "--" + boundary;
+        String[] parts = bodyString.split(delimiter);
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+
+            if (part.equals("--") || part.equals("--\r\n") || part.equals("--\n")) {
+                // End boundary
+                result.append(delimiter).append("--");
+                continue;
+            }
+
+            if (part.trim().isEmpty() && i == 0) {
+                // Empty part before first boundary
+                continue;
+            }
+
+            if (i > 0) {
+                result.append(delimiter);
+            }
+
+            // Split part into headers and content
+            int headerEndIndex = part.indexOf("\r\n\r\n");
+            if (headerEndIndex == -1) {
+                headerEndIndex = part.indexOf("\n\n");
+            }
+
+            if (headerEndIndex != -1) {
+                String partHeaders = part.substring(0, headerEndIndex);
+                String partContent = part.substring(headerEndIndex);
+
+                // Keep headers, check if content is binary
+                result.append(partHeaders);
+
+                // Extract just the content (after the blank line)
+                String contentOnly = partContent.length() > 4 ? partContent.substring(4) : partContent.substring(2);
+                contentOnly = contentOnly.replaceFirst("[\r\n]+$", ""); // Remove trailing newlines
+
+                if (isBinaryContent(contentOnly)) {
+                    // Replace binary content with placeholder
+                    result.append(partContent.substring(0, partContent.length() - contentOnly.length()));
+                    result.append(Constants.BINARY_DATA_TEXT);
+                    result.append("\n");
+                } else {
+                    result.append(partContent);
+                }
+            } else {
+                // No headers found, keep as is
+                result.append(part);
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Extracts boundary from Content-Type header value.
+     *
+     * @param contentType The Content-Type header value
+     * @return The boundary string, or null if not found
+     */
+    private static String extractBoundary(String contentType) {
+        if (contentType == null) {
+            return null;
+        }
+        String boundaryPrefix = "boundary=";
+        int boundaryIndex = contentType.indexOf(boundaryPrefix);
+        if (boundaryIndex == -1) {
+            return null;
+        }
+        String boundary = contentType.substring(boundaryIndex + boundaryPrefix.length());
+        // Remove quotes if present
+        if (boundary.startsWith("\"") && boundary.endsWith("\"")) {
+            boundary = boundary.substring(1, boundary.length() - 1);
+        }
+        // Remove any trailing parameters
+        int semicolonIndex = boundary.indexOf(';');
+        if (semicolonIndex != -1) {
+            boundary = boundary.substring(0, semicolonIndex);
+        }
+        return boundary.trim();
+    }
+
+    /**
+     * Processes body content, handling multipart data specially.
+     *
+     * @param bodyBytes   The body as byte array
+     * @param contentType The Content-Type header value (can be null)
+     * @return Processed body string with binary parts sanitized
+     */
+    private static String processBodyContent(byte[] bodyBytes, String contentType) {
+        if (bodyBytes == null || bodyBytes.length == 0) {
+            return "";
+        }
+
+        String bodyString = new String(bodyBytes, StandardCharsets.UTF_8);
+
+        // Check if it's multipart
+        if (contentType != null && contentType.toLowerCase().contains("multipart/")) {
+            String boundary = extractBoundary(contentType);
+            if (boundary != null) {
+                return sanitizeMultipartBody(bodyString, boundary);
+            }
+        }
+
+        // For non-multipart, check if entire body is binary
+        if (isBinaryContent(bodyBytes)) {
+            return Constants.BINARY_DATA_TEXT;
+        }
+
+        // Try to pretty print JSON
+        return prettyPrintJson(bodyString);
+    }
+
+    /**
      * Pretty-prints a JSON string with indentation.
      *
      * @param jsonString The JSON string to format
@@ -198,11 +326,8 @@ public final class ExcelFormatterUtils {
             requestBody = Constants.REDACTED_TEXT;
         } else {
             byte[] requestBodyBytes = requestResponse.request().body().getBytes();
-            if (isBinaryContent(requestBodyBytes)) {
-                requestBody = Constants.BINARY_DATA_TEXT;
-            } else {
-                requestBody = prettyPrintJson(new String(requestBodyBytes, StandardCharsets.UTF_8));
-            }
+            String requestContentType = requestResponse.request().headerValue("Content-Type");
+            requestBody = processBodyContent(requestBodyBytes, requestContentType);
         }
         data.append(excelFormat(requestBody)).append(Constants.EXCEL_SEPARATOR);
 
@@ -212,11 +337,8 @@ public final class ExcelFormatterUtils {
             responseBody = Constants.REDACTED_TEXT;
         } else {
             byte[] responseBodyBytes = requestResponse.response().body().getBytes();
-            if (isBinaryContent(responseBodyBytes)) {
-                responseBody = Constants.BINARY_DATA_TEXT;
-            } else {
-                responseBody = prettyPrintJson(new String(responseBodyBytes, StandardCharsets.UTF_8));
-            }
+            String responseContentType = requestResponse.response().headerValue("Content-Type");
+            responseBody = processBodyContent(responseBodyBytes, responseContentType);
         }
         data.append(excelFormat(responseBody)).append(Constants.EXCEL_SEPARATOR);
 
@@ -240,13 +362,8 @@ public final class ExcelFormatterUtils {
 
         if (includeBody) {
             byte[] bodyBytes = requestResponse.request().body().getBytes();
-            String prettyBody;
-            if (isBinaryContent(bodyBytes)) {
-                prettyBody = "\n" + Constants.BINARY_DATA_TEXT;
-            } else {
-                String bodyString = new String(bodyBytes, StandardCharsets.UTF_8);
-                prettyBody = "\n" + prettyPrintJson(bodyString);
-            }
+            String contentType = requestResponse.request().headerValue("Content-Type");
+            String prettyBody = "\n" + processBodyContent(bodyBytes, contentType);
             return firstLine + headersString + "\n" + prettyBody;
         } else {
             return firstLine + headersString + "\n\n" + Constants.REDACTED_TEXT;
@@ -266,13 +383,8 @@ public final class ExcelFormatterUtils {
 
         if (includeBody) {
             byte[] bodyBytes = requestResponse.response().body().getBytes();
-            String prettyBody;
-            if (isBinaryContent(bodyBytes)) {
-                prettyBody = "\n" + Constants.BINARY_DATA_TEXT;
-            } else {
-                String bodyString = new String(bodyBytes, StandardCharsets.UTF_8);
-                prettyBody = "\n" + prettyPrintJson(bodyString);
-            }
+            String contentType = requestResponse.response().headerValue("Content-Type");
+            String prettyBody = "\n" + processBodyContent(bodyBytes, contentType);
             return firstLine + "\n" + headersString + "\n" + prettyBody;
         } else {
             return firstLine + "\n" + headersString + "\n\n" + Constants.REDACTED_TEXT;
