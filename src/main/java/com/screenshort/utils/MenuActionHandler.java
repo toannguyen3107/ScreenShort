@@ -26,24 +26,24 @@ public class MenuActionHandler {
 
 
     // --- Other utility methods (unchanged) ---
-    public void handleCopyToExcel(HttpRequestResponse requestResponse) {
-        if (requestResponse == null) {
-             api.logging().logToOutput("Cannot copy to Excel: RequestResponse is null.");
+    public void handleCopyToExcel(List<HttpRequestResponse> requestResponses) {
+        if (requestResponses == null || requestResponses.isEmpty()) {
+             api.logging().logToOutput("Cannot copy to Excel: No RequestResponse selected.");
              return;
         }
-        // Assume ExcelFormatterUtils exists and works
-        String data = ExcelFormatterUtils.formatRequestResponseForExcel(requestResponse);
+        String data = ExcelFormatterUtils.formatRequestResponseForExcel(requestResponses);
         ExcelFormatterUtils.copyToClipboard(data);
+        api.logging().logToOutput("PCopy: Copied " + requestResponses.size() + " row(s) to clipboard.");
     }
 
-    public void handleCopyToExcelNoBody(HttpRequestResponse requestResponse) {
-         if (requestResponse == null) {
-             api.logging().logToOutput("Cannot copy to Excel: RequestResponse is null.");
+    public void handleCopyToExcelNoBody(List<HttpRequestResponse> requestResponses) {
+        if (requestResponses == null || requestResponses.isEmpty()) {
+             api.logging().logToOutput("Cannot copy to Excel: No RequestResponse selected.");
              return;
         }
-         // Assume ExcelFormatterUtils exists and works
-         String data = ExcelFormatterUtils.formatRequestResponseForExcelNoBody(requestResponse);
-         ExcelFormatterUtils.copyToClipboard(data);
+        String data = ExcelFormatterUtils.formatRequestResponseForExcelNoBody(requestResponses);
+        ExcelFormatterUtils.copyToClipboard(data);
+        api.logging().logToOutput("PCopy: Copied " + requestResponses.size() + " row(s) to clipboard (no body).");
     }
     public void handleGenDataAction(HttpRequestResponse requestResponse) {
         if (requestResponse == null) {
