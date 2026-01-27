@@ -65,8 +65,8 @@ public final class ExcelFormatterUtils {
 
     /**
      * Formats data for Excel, handling special characters and length limits.
-     * This method escapes newlines, control characters, and other special chars
-     * to prevent Excel from crashing or creating unwanted line breaks.
+     * This method filters out problematic control characters while preserving
+     * newlines for readability.
      *
      * @param data The data to format
      * @return Formatted string suitable for Excel
@@ -87,10 +87,9 @@ public final class ExcelFormatterUtils {
                     formattedData.append("\\t");
                     break;
                 case '\n':
-                    formattedData.append("\\n");
-                    break;
                 case '\r':
-                    formattedData.append("\\r");
+                    // Keep newlines for readability - Excel handles them in quoted cells
+                    formattedData.append(c);
                     break;
                 case '"':
                     formattedData.append("\"\"");
@@ -108,7 +107,7 @@ public final class ExcelFormatterUtils {
                     formattedData.append("&#39;");
                     break;
                 default:
-                    // Skip control characters (ASCII 0-31 except already handled, and 127)
+                    // Skip problematic control characters (ASCII 0-31 except tab/newline, and 127)
                     if (c >= 32 && c != 127) {
                         formattedData.append(c);
                     }
