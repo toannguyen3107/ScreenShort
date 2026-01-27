@@ -34,6 +34,8 @@ public final class Constants {
     public static final int MAX_EXCEL_CELL_LENGTH = 29000;
     public static final String EXCEL_SEPARATOR = "\t";
     public static final String REDACTED_TEXT = "REDACTED";
+    public static final String BINARY_DATA_TEXT = "[BINARY DATA]";
+    public static final double BINARY_THRESHOLD = 0.1; // 10% non-printable chars = binary
 
     // ==================== Annotation Modes ====================
     public static final String MODE_RECT = "RECT";
