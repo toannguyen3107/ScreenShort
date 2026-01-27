@@ -1,5 +1,6 @@
 package com.screenshort.utils;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 import burp.api.montoya.MontoyaApi;
@@ -34,10 +35,34 @@ public class CustomMessageEditorHotKey {
                 evt -> screenshotUtils.handleFullScreenshot()
         );
 
-        // PCopy hotkeys - using helper method to reduce duplication
-        registerRequestResponseHotKey(api, "Ctrl+Alt+Space", menuHandler::handleCopyToExcel);
-        registerRequestResponseHotKey(api, "Ctrl+Alt+X", menuHandler::handleCopyToExcelNoBody);
+        // PCopy hotkeys - using helper method to reduce duplication (supports list)
+        registerRequestResponseListHotKey(api, "Ctrl+Alt+Space", menuHandler::handleCopyToExcel);
+        registerRequestResponseListHotKey(api, "Ctrl+Alt+X", menuHandler::handleCopyToExcelNoBody);
+
+        // GenData hotkey - single item
         registerRequestResponseHotKey(api, "Ctrl+Alt+V", menuHandler::handleGenDataAction);
+    }
+
+    /**
+     * Helper method to register a hotkey that requires List of HttpRequestResponse.
+     * Used for PCopy which supports multiple selections.
+     *
+     * @param api     The Montoya API
+     * @param hotkey  The hotkey combination string
+     * @param handler The handler to invoke with the List of HttpRequestResponse
+     */
+    private void registerRequestResponseListHotKey(
+            MontoyaApi api,
+            String hotkey,
+            Consumer<List<HttpRequestResponse>> handler
+    ) {
+        api.userInterface().registerHotKeyHandler(
+                HotKeyContext.HTTP_MESSAGE_EDITOR,
+                hotkey,
+                evt -> evt.messageEditorRequestResponse()
+                        .map(m -> m.requestResponse())
+                        .ifPresent(reqRes -> handler.accept(List.of(reqRes)))
+        );
     }
 
     /**

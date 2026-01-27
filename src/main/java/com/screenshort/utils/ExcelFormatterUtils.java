@@ -274,6 +274,27 @@ public final class ExcelFormatterUtils {
     }
 
     /**
+     * Formats multiple HttpRequestResponse for Excel with full body content.
+     * Each row is separated by newline for multi-row paste in Excel.
+     *
+     * @param requestResponses The list of request/response data
+     * @return Tab-separated string with multiple rows ready for Excel paste
+     */
+    public static String formatRequestResponseForExcel(List<HttpRequestResponse> requestResponses) {
+        if (requestResponses == null || requestResponses.isEmpty()) {
+            return "";
+        }
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < requestResponses.size(); i++) {
+            if (i > 0) {
+                result.append("\n");
+            }
+            result.append(formatRequestResponse(requestResponses.get(i), true));
+        }
+        return result.toString();
+    }
+
+    /**
      * Formats HttpRequestResponse for Excel with body content redacted.
      *
      * @param requestResponse The request/response data
@@ -281,6 +302,27 @@ public final class ExcelFormatterUtils {
      */
     public static String formatRequestResponseForExcelNoBody(HttpRequestResponse requestResponse) {
         return formatRequestResponse(requestResponse, false);
+    }
+
+    /**
+     * Formats multiple HttpRequestResponse for Excel with body content redacted.
+     * Each row is separated by newline for multi-row paste in Excel.
+     *
+     * @param requestResponses The list of request/response data
+     * @return Tab-separated string with multiple rows ready for Excel paste
+     */
+    public static String formatRequestResponseForExcelNoBody(List<HttpRequestResponse> requestResponses) {
+        if (requestResponses == null || requestResponses.isEmpty()) {
+            return "";
+        }
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < requestResponses.size(); i++) {
+            if (i > 0) {
+                result.append("\n");
+            }
+            result.append(formatRequestResponse(requestResponses.get(i), false));
+        }
+        return result.toString();
     }
 
     /**

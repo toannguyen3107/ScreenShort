@@ -11,6 +11,7 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
+import burp.api.montoya.ui.contextmenu.MessageEditorHttpRequestResponse;
 import java.util.function.Consumer;
 
 public class GUI implements ContextMenuItemsProvider {
@@ -32,6 +33,12 @@ public class GUI implements ContextMenuItemsProvider {
         return menuItem;
     }
 
+    private JMenuItem createMenuItemWithReqResList(String text, Consumer<List<HttpRequestResponse>> action, List<HttpRequestResponse> reqResList) {
+        JMenuItem menuItem = new JMenuItem(text);
+        menuItem.addActionListener(e -> action.accept(reqResList));
+        return menuItem;
+    }
+
     private JMenu createScreenshotMenu(ContextMenuEvent event) {
         JMenu screenshotMenu = new JMenu("Screenshot");
 
@@ -44,10 +51,11 @@ public class GUI implements ContextMenuItemsProvider {
         return screenshotMenu;
     }
 
-    private JMenu createPCopyMenu(HttpRequestResponse requestResponse) {
+    private JMenu createPCopyMenu(List<HttpRequestResponse> requestResponses) {
         JMenu pCopyMenu = new JMenu("PCopy");
-        pCopyMenu.add(createMenuItemWithReqRes("PCopy has body in response - Ctrl+Alt+Space", menuHandler::handleCopyToExcel, requestResponse));
-        pCopyMenu.add(createMenuItemWithReqRes("PCopy no body in response - Ctrl+Alt+X", menuHandler::handleCopyToExcelNoBody, requestResponse));
+        String countLabel = requestResponses.size() > 1 ? " (" + requestResponses.size() + " items)" : "";
+        pCopyMenu.add(createMenuItemWithReqResList("PCopy has body" + countLabel + " - Ctrl+Alt+Space", menuHandler::handleCopyToExcel, requestResponses));
+        pCopyMenu.add(createMenuItemWithReqResList("PCopy no body" + countLabel + " - Ctrl+Alt+X", menuHandler::handleCopyToExcelNoBody, requestResponses));
         return pCopyMenu;
     }
 
@@ -68,14 +76,24 @@ public class GUI implements ContextMenuItemsProvider {
         // Always add screenshot menu
         menuItems.add(createScreenshotMenu(event));
 
-        // Add other menus if request/response data is available
-        Optional<HttpRequestResponse> optionalRequestResponse = event.messageEditorRequestResponse().map(editorReqRes -> editorReqRes.requestResponse())
-                .or(() -> event.selectedRequestResponses().stream().findFirst());
+        // Get all selected request/responses for PCopy (supports multi-selection)
+        List<HttpRequestResponse> selectedRequestResponses = new ArrayList<>();
 
-        if (optionalRequestResponse.isPresent()) {
-             HttpRequestResponse requestResponse = optionalRequestResponse.get();
-             menuItems.add(createPCopyMenu(requestResponse));
-             menuItems.add(createGendataMenu(requestResponse));
+        // First check if we're in a message editor
+        Optional<MessageEditorHttpRequestResponse> editorReqRes = event.messageEditorRequestResponse();
+        if (editorReqRes.isPresent()) {
+            selectedRequestResponses.add(editorReqRes.get().requestResponse());
+        } else {
+            // Otherwise get all selected items from the table
+            selectedRequestResponses.addAll(event.selectedRequestResponses());
+        }
+
+        if (!selectedRequestResponses.isEmpty()) {
+            // PCopy supports multiple selections
+            menuItems.add(createPCopyMenu(selectedRequestResponses));
+
+            // Export File uses first selected item only
+            menuItems.add(createGendataMenu(selectedRequestResponses.get(0)));
         }
         return menuItems;
     }
