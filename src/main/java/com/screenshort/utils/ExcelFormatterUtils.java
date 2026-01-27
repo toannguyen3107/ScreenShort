@@ -153,25 +153,24 @@ public final class ExcelFormatterUtils {
             }
 
             // Split part into headers and content
+            // Look for double newline (CRLF CRLF or LF LF)
             int headerEndIndex = part.indexOf("\r\n\r\n");
+            String separator = "\r\n\r\n";
             if (headerEndIndex == -1) {
                 headerEndIndex = part.indexOf("\n\n");
+                separator = "\n\n";
             }
 
             if (headerEndIndex != -1) {
                 String partHeaders = part.substring(0, headerEndIndex);
-                String partContent = part.substring(headerEndIndex);
+                String partContent = part.substring(headerEndIndex + separator.length());
 
-                // Keep headers, check if content is binary
+                // Keep headers and separator
                 result.append(partHeaders);
+                result.append(separator);
 
-                // Extract just the content (after the blank line)
-                String contentOnly = partContent.length() > 4 ? partContent.substring(4) : partContent.substring(2);
-                contentOnly = contentOnly.replaceFirst("[\r\n]+$", ""); // Remove trailing newlines
-
-                if (isBinaryContent(contentOnly)) {
-                    // Replace binary content with placeholder
-                    result.append(partContent.substring(0, partContent.length() - contentOnly.length()));
+                // Check if content is binary and replace entirely
+                if (isBinaryContent(partContent)) {
                     result.append(Constants.BINARY_DATA_TEXT);
                     result.append("\n");
                 } else {
