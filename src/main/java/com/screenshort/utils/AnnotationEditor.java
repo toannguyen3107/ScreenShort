@@ -2,7 +2,11 @@ package com.screenshort.utils;
 
 import burp.api.montoya.MontoyaApi;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -14,6 +18,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -406,9 +411,13 @@ public class AnnotationEditor {
             api.logging().logToOutput("[Copy Action] Original image size: " + originalImage.getWidth() + "x" + originalImage.getHeight());
 
             if (ClipboardUtils.copyImageToClipboard(finalImage)) {
-                editor.dispose();
+                JOptionPane.showMessageDialog(editor, "Image copied to clipboard!", "Copied",
+                        JOptionPane.INFORMATION_MESSAGE);
+                // Don't dispose editor - allow user to continue editing or save
             } else {
                 api.logging().logToError("[Copy Action] Failed to copy image to clipboard");
+                JOptionPane.showMessageDialog(editor, "Failed to copy image to clipboard.",
+                        "Copy Error", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
             api.logging().logToError("[Copy Action] Error rendering or copying annotated image: " + ex.toString(), ex);
@@ -461,16 +470,29 @@ public class AnnotationEditor {
                 g.drawImage(finalImage, 0, 0, null);
                 g.dispose();
 
-                boolean success = ImageIO.write(rgbImage, "jpg", f);
-                if (success) {
+                // Write JPEG with compression quality 0.75 for smaller file size
+                Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+                if (!writers.hasNext()) {
+                    throw new IOException("No JPEG writer found");
+                }
+                ImageWriter writer = writers.next();
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionQuality(0.75f); // 0.0 = max compression, 1.0 = max quality
+
+                try (ImageOutputStream ios = ImageIO.createImageOutputStream(f)) {
+                    writer.setOutput(ios);
+                    writer.write(null, new IIOImage(rgbImage, null, null), param);
+                    writer.dispose();
+
                     JOptionPane.showMessageDialog(editor,
                             "Saved to:\n" + f.getAbsolutePath(), "Saved",
                             JOptionPane.INFORMATION_MESSAGE);
-                    editor.dispose();
-                } else {
-                    api.logging().logToError("[Save Action] ImageIO.write returned false.");
+                    // Don't dispose editor - allow user to continue editing or copy
+                } catch (IOException writeEx) {
+                    api.logging().logToError("[Save Action] ImageIO write error: " + writeEx.toString(), writeEx);
                     JOptionPane.showMessageDialog(editor,
-                            "Error saving image (write operation failed).\nCheck file permissions or disk space.",
+                            "Error saving image:\n" + writeEx.getMessage(),
                             "Save Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
