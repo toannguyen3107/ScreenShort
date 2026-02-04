@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -32,6 +34,25 @@ jobs:
           echo "date=$(date +'%d_%m_%Y')" >> $GITHUB_OUTPUT
           echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # No previous tag, get last 10 commits
+            CHANGELOG=$(git log --oneline -10 --pretty=format:"- %s" | head -20)
+          else
+            # Get commits since last tag
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --oneline --pretty=format:"- %s" | head -20)
+          fi
+
+          # Store changelog in output (handle multiline)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Rename JAR file
         run: |
           mv target/Screenshot-*.jar target/screenshort_${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}.jar
@@ -42,10 +63,16 @@ jobs:
           tag_name: v${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}
           name: Release ${{ steps.info.outputs.date }} (${{ steps.info.outputs.short_sha }})
           body: |
-            Automated release for ScreenShort extension.
+            ## ScreenShort Extension Release
 
-            - **Build date:** ${{ steps.info.outputs.date }}
-            - **Commit:** ${{ github.sha }}
+            **Build date:** ${{ steps.info.outputs.date }}
+            **Commit:** ${{ github.sha }}
+
+            ### Changes
+            ${{ steps.changelog.outputs.changelog }}
+
+            ---
+            *Auto-generated release*
           files: target/screenshort_${{ steps.info.outputs.date }}_${{ steps.info.outputs.short_sha }}.jar
           draft: false
           prerelease: false
