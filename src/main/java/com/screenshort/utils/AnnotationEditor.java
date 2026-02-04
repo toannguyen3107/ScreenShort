@@ -2,11 +2,7 @@ package com.screenshort.utils;
 
 import burp.api.montoya.MontoyaApi;
 
-import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -18,7 +14,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -440,16 +435,15 @@ public class AnnotationEditor {
 
             JFileChooser fc = new JFileChooser();
             fc.setDialogTitle("Save Annotated Screenshot");
-            fc.setSelectedFile(new File("annotated_screenshot.jpg"));
-            fc.setFileFilter(new FileNameExtensionFilter("JPEG Images (*.jpg)", "jpg", "jpeg"));
+            fc.setSelectedFile(new File("annotated_screenshot.png"));
+            fc.setFileFilter(new FileNameExtensionFilter("PNG Images (*.png)", "png"));
             fc.setAcceptAllFileFilterUsed(false);
 
             int res = fc.showSaveDialog(editor);
             if (res == JFileChooser.APPROVE_OPTION) {
                 File f = fc.getSelectedFile();
-                String fileName = f.getName().toLowerCase();
-                if (!fileName.endsWith(".jpg") && !fileName.endsWith(".jpeg")) {
-                    f = new File(f.getParentFile(), f.getName() + ".jpg");
+                if (!f.getName().toLowerCase().endsWith(".png")) {
+                    f = new File(f.getParentFile(), f.getName() + ".png");
                 }
 
                 if (f.exists()) {
@@ -461,38 +455,16 @@ public class AnnotationEditor {
                     }
                 }
 
-                // Convert ARGB to RGB for JPEG (JPEG doesn't support alpha channel)
-                BufferedImage rgbImage = new BufferedImage(
-                        finalImage.getWidth(), finalImage.getHeight(), BufferedImage.TYPE_INT_RGB);
-                Graphics2D g = rgbImage.createGraphics();
-                g.setColor(Color.WHITE); // Fill background with white for transparency
-                g.fillRect(0, 0, rgbImage.getWidth(), rgbImage.getHeight());
-                g.drawImage(finalImage, 0, 0, null);
-                g.dispose();
-
-                // Write JPEG with compression quality 0.75 for smaller file size
-                Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
-                if (!writers.hasNext()) {
-                    throw new IOException("No JPEG writer found");
-                }
-                ImageWriter writer = writers.next();
-                ImageWriteParam param = writer.getDefaultWriteParam();
-                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                param.setCompressionQuality(0.75f); // 0.0 = max compression, 1.0 = max quality
-
-                try (ImageOutputStream ios = ImageIO.createImageOutputStream(f)) {
-                    writer.setOutput(ios);
-                    writer.write(null, new IIOImage(rgbImage, null, null), param);
-                    writer.dispose();
-
+                boolean success = ImageIO.write(finalImage, "png", f);
+                if (success) {
                     JOptionPane.showMessageDialog(editor,
                             "Saved to:\n" + f.getAbsolutePath(), "Saved",
                             JOptionPane.INFORMATION_MESSAGE);
                     // Don't dispose editor - allow user to continue editing or copy
-                } catch (IOException writeEx) {
-                    api.logging().logToError("[Save Action] ImageIO write error: " + writeEx.toString(), writeEx);
+                } else {
+                    api.logging().logToError("[Save Action] ImageIO.write returned false.");
                     JOptionPane.showMessageDialog(editor,
-                            "Error saving image:\n" + writeEx.getMessage(),
+                            "Error saving image (write operation failed).\nCheck file permissions or disk space.",
                             "Save Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
