@@ -431,15 +431,16 @@ public class AnnotationEditor {
 
             JFileChooser fc = new JFileChooser();
             fc.setDialogTitle("Save Annotated Screenshot");
-            fc.setSelectedFile(new File("annotated_screenshot.png"));
-            fc.setFileFilter(new FileNameExtensionFilter("PNG Images (*.png)", "png"));
+            fc.setSelectedFile(new File("annotated_screenshot.jpg"));
+            fc.setFileFilter(new FileNameExtensionFilter("JPEG Images (*.jpg)", "jpg", "jpeg"));
             fc.setAcceptAllFileFilterUsed(false);
 
             int res = fc.showSaveDialog(editor);
             if (res == JFileChooser.APPROVE_OPTION) {
                 File f = fc.getSelectedFile();
-                if (!f.getName().toLowerCase().endsWith(".png")) {
-                    f = new File(f.getParentFile(), f.getName() + ".png");
+                String fileName = f.getName().toLowerCase();
+                if (!fileName.endsWith(".jpg") && !fileName.endsWith(".jpeg")) {
+                    f = new File(f.getParentFile(), f.getName() + ".jpg");
                 }
 
                 if (f.exists()) {
@@ -451,7 +452,16 @@ public class AnnotationEditor {
                     }
                 }
 
-                boolean success = ImageIO.write(finalImage, "png", f);
+                // Convert ARGB to RGB for JPEG (JPEG doesn't support alpha channel)
+                BufferedImage rgbImage = new BufferedImage(
+                        finalImage.getWidth(), finalImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = rgbImage.createGraphics();
+                g.setColor(Color.WHITE); // Fill background with white for transparency
+                g.fillRect(0, 0, rgbImage.getWidth(), rgbImage.getHeight());
+                g.drawImage(finalImage, 0, 0, null);
+                g.dispose();
+
+                boolean success = ImageIO.write(rgbImage, "jpg", f);
                 if (success) {
                     JOptionPane.showMessageDialog(editor,
                             "Saved to:\n" + f.getAbsolutePath(), "Saved",
